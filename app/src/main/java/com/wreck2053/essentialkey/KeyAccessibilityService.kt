@@ -20,9 +20,10 @@ class KeyAccessibilityService : AccessibilityService() {
         serviceInfo = serviceInfo.apply {
             flags = flags or AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
         }
-        classifier = GestureClassifier(HandlerScheduler(Handler(Looper.getMainLooper()))) { action ->
-            executeAction(action)
-        }
+        classifier = GestureClassifier(
+            scheduler = HandlerScheduler(Handler(Looper.getMainLooper())),
+            onAction = ::executeAction,
+        )
     }
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
@@ -97,4 +98,3 @@ class KeyAccessibilityService : AccessibilityService() {
         }
     }
 }
-
