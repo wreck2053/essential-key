@@ -5,8 +5,8 @@ import com.wreck2053.essentialkey.domain.PressAction
 class GestureClassifier(
     private val scheduler: Scheduler,
     private val onAction: (PressAction) -> Unit,
-    private val longPressMs: Long = 600,
-    private val doublePressMs: Long = 300,
+    private val longPressMs: Long = 400,
+    private val doublePressMs: Long = 150,
 ) {
     interface Cancellable {
         fun cancel()

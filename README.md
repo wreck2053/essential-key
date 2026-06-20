@@ -35,9 +35,9 @@ The interface uses dynamic Material You color on Android 12+, supports light/dar
 
 ## Gesture timing
 
-- Single press: fires after a 300 ms double-press window.
-- Double press: two short presses within that window.
-- Long press: fires after holding for 600 ms.
+- Single press: fires after a 150 ms double-press window.
+- Double press: two quick presses within that window.
+- Long press: fires after holding for 400 ms.
 
 ## Android and Nothing OS limitations
 
