@@ -15,7 +15,7 @@ class GestureClassifierTest {
         classifier.onKeyDown(0)
         scheduler.advanceBy(100)
         classifier.onKeyUp(false)
-        scheduler.advanceBy(149)
+        scheduler.advanceBy(299)
         assertEquals(emptyList<PressAction>(), actions)
         scheduler.advanceBy(1)
         assertEquals(listOf(PressAction.SINGLE), actions)
@@ -46,7 +46,7 @@ class GestureClassifierTest {
         classifier.onKeyDown(0)
         classifier.onKeyDown(1)
         classifier.onKeyDown(2)
-        scheduler.advanceBy(400)
+        scheduler.advanceBy(600)
         classifier.onKeyUp(false)
         scheduler.advanceBy(500)
 

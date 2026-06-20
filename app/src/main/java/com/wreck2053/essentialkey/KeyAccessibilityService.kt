@@ -19,6 +19,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class KeyAccessibilityService : AccessibilityService() {
     private lateinit var repository: SettingsRepository
@@ -81,10 +82,9 @@ class KeyAccessibilityService : AccessibilityService() {
 
     private fun executeAction(action: PressAction) {
         val config = currentSettings.actions.getValue(action)
-        val hapticStrength = currentSettings.hapticStrength
+        hapticEngine.perform(currentSettings.hapticStrength)
         if (config.url.isBlank()) {
             serviceScope.launch {
-                hapticEngine.perform(hapticStrength)
                 repository.saveResult(action, "${Instant.now()} — HTTP disabled")
             }
             return
@@ -92,17 +92,14 @@ class KeyAccessibilityService : AccessibilityService() {
         val resolvedConfig = config.copy(
             url = ActionUrlResolver.resolve(currentSettings.baseUrl, config.url),
         )
-        serviceScope.launch(Dispatchers.IO) {
-            val result = requestExecutor.execute(resolvedConfig)
+        serviceScope.launch {
+            val result = withContext(Dispatchers.IO) { requestExecutor.execute(resolvedConfig) }
             val status = if (result.statusCode >= 0) {
                 "HTTP ${result.statusCode} ${result.message}".trim()
             } else {
                 "Error: ${result.message}"
             }
             repository.saveResult(action, "${Instant.now()} — $status")
-        }
-        serviceScope.launch {
-            hapticEngine.perform(hapticStrength)
         }
     }
 
