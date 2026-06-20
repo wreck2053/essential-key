@@ -30,6 +30,12 @@
             android:layout_marginTop="16dp" />
 
         <Button
+            android:id="@+id/appInfoButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/open_app_info" />
+
+        <Button
             android:id="@+id/accessibilityButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

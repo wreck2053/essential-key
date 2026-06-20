@@ -13,11 +13,14 @@ All compilation happens in GitHub Actions. Editing and pushing source files loca
 
 ## Configure
 
-1. Open the app and tap **Open accessibility settings**.
-2. Enable **Essential Key button listener**, then return to the app.
-3. Tap **Detect hardware button** and press the Essential Key once.
-4. Enter a local `http://` or `https://` URL and select GET or POST for each gesture.
-5. Tap **Save actions**.
+1. Open the app and tap **Open app info / allow restricted settings**.
+2. In App info, open the top-right three-dot menu and tap **Allow restricted settings**. This Android 13+ step is required for APKs installed outside Google Play; signing the APK does not bypass it.
+3. Return to the app, tap **Open accessibility settings**, and enable **Essential Key button listener**.
+4. Return to the app. Confirm that it says **Accessibility service: enabled**.
+5. Tap **Detect hardware button** and press the Essential Key once.
+6. Enter a local `http://` or `https://` URL and select GET or POST for each gesture, then tap **Save actions**.
+
+Button detection is intentionally disabled until Android reports that the Accessibility Service is enabled. If the **Allow restricted settings** menu item is not visible, first try enabling the service once, accept the denial, and return to App info.
 
 POST sends an empty request body. The app shows the latest HTTP status or error below each action. Requests use a 5-second connection timeout and 10-second read timeout.
 
@@ -46,4 +49,3 @@ The workflow then uploads `app/build/outputs/apk/debug/app-debug.apk` as `essent
 ## License
 
 MIT
-

@@ -4,9 +4,11 @@
     <string name="service_name">Essential Key button listener</string>
     <string name="service_description">Observes hardware key events and sends your configured local HTTP requests.</string>
     <string name="service_enabled">Accessibility service: enabled</string>
-    <string name="service_disabled">Accessibility service: disabled</string>
-    <string name="open_accessibility">Open accessibility settings</string>
+    <string name="service_disabled">Accessibility service: disabled — button detection cannot work</string>
+    <string name="open_app_info">1. Open app info / allow restricted settings</string>
+    <string name="open_accessibility">2. Open accessibility settings / enable service</string>
     <string name="detect_button">Detect hardware button</string>
+    <string name="detect_requires_service">Enable the accessibility service first.</string>
     <string name="detect_waiting">Waiting for one hardware button press…</string>
     <string name="no_button">No button mapped</string>
     <string name="save">Save actions</string>
@@ -16,6 +18,5 @@
     <string name="double_press">Double press</string>
     <string name="long_press">Long press</string>
     <string name="last_result_none">Last result: none</string>
-    <string name="instructions">1. Enable the accessibility service.\n2. Tap Detect and press the Essential Key once.\n3. Configure and save the three requests.</string>
+    <string name="instructions">Because this APK is installed outside Google Play, Android blocks Accessibility by default.\n\n1. Open app info, tap the ⋮ menu, then Allow restricted settings.\n2. Open accessibility settings and enable the service.\n3. Return here, tap Detect, and press the hardware button once.</string>
 </resources>
-

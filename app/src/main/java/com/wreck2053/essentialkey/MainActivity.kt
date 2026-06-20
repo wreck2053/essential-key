@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.net.Uri
 import android.view.accessibility.AccessibilityManager
 import android.widget.ArrayAdapter
 import android.widget.Button
@@ -35,12 +36,23 @@ class MainActivity : AppCompatActivity() {
         setupMethodSpinner(R.id.longMethod)
         loadActions()
 
+        findViewById<Button>(R.id.appInfoButton).setOnClickListener {
+            startActivity(
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.parse("package:$packageName")
+                },
+            )
+        }
         findViewById<Button>(R.id.accessibilityButton).setOnClickListener {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
         findViewById<Button>(R.id.detectButton).setOnClickListener {
-            preferences.learning = true
-            findViewById<TextView>(R.id.keyDetails).setText(R.string.detect_waiting)
+            if (isServiceEnabled()) {
+                preferences.learning = true
+                findViewById<TextView>(R.id.keyDetails).setText(R.string.detect_waiting)
+            } else {
+                Toast.makeText(this, R.string.detect_requires_service, Toast.LENGTH_LONG).show()
+            }
         }
         findViewById<Button>(R.id.saveButton).setOnClickListener {
             saveActions()
@@ -93,9 +105,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshStatus() {
+        val serviceEnabled = isServiceEnabled()
         findViewById<TextView>(R.id.serviceStatus).setText(
-            if (isServiceEnabled()) R.string.service_enabled else R.string.service_disabled,
+            if (serviceEnabled) R.string.service_enabled else R.string.service_disabled,
         )
+        findViewById<Button>(R.id.detectButton).isEnabled = serviceEnabled
+        if (!serviceEnabled && preferences.learning) preferences.learning = false
         if (preferences.learning) {
             findViewById<TextView>(R.id.keyDetails).setText(R.string.detect_waiting)
         } else {
