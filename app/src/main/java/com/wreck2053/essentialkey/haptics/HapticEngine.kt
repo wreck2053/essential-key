@@ -47,7 +47,7 @@ class AndroidHapticEngine(context: Context) : HapticEngine {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 vibrator.vibrate(
                     effect,
-                    VibrationAttributes.createForUsage(VibrationAttributes.USAGE_ACCESSIBILITY),
+                    VibrationAttributes.createForUsage(VibrationAttributes.USAGE_HARDWARE_FEEDBACK),
                 )
             } else {
                 @Suppress("DEPRECATION")
@@ -55,7 +55,7 @@ class AndroidHapticEngine(context: Context) : HapticEngine {
                     effect,
                     AudioAttributes.Builder()
                         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .setUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
+                        .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
                         .build(),
                 )
             }
@@ -64,25 +64,26 @@ class AndroidHapticEngine(context: Context) : HapticEngine {
     }
 
     private fun createEffect(strength: HapticStrength): VibrationEffect {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            VibrationEffect.createPredefined(HapticEffectSelector.effectId(strength))
+        val profile = HapticEffectSelector.profile(strength)
+        val amplitude = if (vibrator.hasAmplitudeControl()) {
+            profile.amplitude
         } else {
-            val (duration, amplitude) = when (strength) {
-                HapticStrength.LIGHT -> 10L to 80
-                HapticStrength.MEDIUM -> 15L to 160
-                HapticStrength.STRONG -> 20L to 255
-                HapticStrength.OFF -> error("Off has no vibration effect")
-            }
-            VibrationEffect.createOneShot(duration, amplitude)
+            VibrationEffect.DEFAULT_AMPLITUDE
         }
+        return VibrationEffect.createOneShot(profile.durationMs, amplitude)
     }
 }
 
+data class HapticProfile(
+    val durationMs: Long,
+    val amplitude: Int,
+)
+
 object HapticEffectSelector {
-    fun effectId(strength: HapticStrength): Int = when (strength) {
+    fun profile(strength: HapticStrength): HapticProfile = when (strength) {
         HapticStrength.OFF -> error("Off has no vibration effect")
-        HapticStrength.LIGHT -> VibrationEffect.EFFECT_TICK
-        HapticStrength.MEDIUM -> VibrationEffect.EFFECT_CLICK
-        HapticStrength.STRONG -> VibrationEffect.EFFECT_HEAVY_CLICK
+        HapticStrength.LIGHT -> HapticProfile(durationMs = 18L, amplitude = 70)
+        HapticStrength.MEDIUM -> HapticProfile(durationMs = 32L, amplitude = 150)
+        HapticStrength.STRONG -> HapticProfile(durationMs = 50L, amplitude = 255)
     }
 }

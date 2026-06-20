@@ -69,7 +69,7 @@ data class AppSettings(
     val learning: Boolean = false,
 ) {
     companion object {
-        const val DEFAULT_BASE_URL = "http://home-automation.local"
+        const val DEFAULT_BASE_URL = "http://192.168.0.108"
 
         fun defaultActions(): Map<PressAction, ActionSettings> =
             mapOf(

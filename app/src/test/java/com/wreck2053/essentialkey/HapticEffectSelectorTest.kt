@@ -1,6 +1,5 @@
 package com.wreck2053.essentialkey
 
-import android.os.VibrationEffect
 import com.wreck2053.essentialkey.domain.HapticStrength
 import com.wreck2053.essentialkey.haptics.HapticEffectSelector
 import org.junit.Assert.assertEquals
@@ -8,14 +7,21 @@ import org.junit.Test
 
 class HapticEffectSelectorTest {
     @Test
-    fun strengthsMapToPlatformEffects() {
-        assertEquals(VibrationEffect.EFFECT_TICK, HapticEffectSelector.effectId(HapticStrength.LIGHT))
-        assertEquals(VibrationEffect.EFFECT_CLICK, HapticEffectSelector.effectId(HapticStrength.MEDIUM))
-        assertEquals(VibrationEffect.EFFECT_HEAVY_CLICK, HapticEffectSelector.effectId(HapticStrength.STRONG))
+    fun strengthsMapToDistinctProfiles() {
+        val light = HapticEffectSelector.profile(HapticStrength.LIGHT)
+        val medium = HapticEffectSelector.profile(HapticStrength.MEDIUM)
+        val strong = HapticEffectSelector.profile(HapticStrength.STRONG)
+
+        assertEquals(18L, light.durationMs)
+        assertEquals(70, light.amplitude)
+        assertEquals(32L, medium.durationMs)
+        assertEquals(150, medium.amplitude)
+        assertEquals(50L, strong.durationMs)
+        assertEquals(255, strong.amplitude)
     }
 
     @Test(expected = IllegalStateException::class)
     fun offHasNoEffect() {
-        HapticEffectSelector.effectId(HapticStrength.OFF)
+        HapticEffectSelector.profile(HapticStrength.OFF)
     }
 }

@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -37,6 +35,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -60,13 +59,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import com.wreck2053.essentialkey.domain.ActionSettings
@@ -88,6 +88,8 @@ fun MapperRoute(
     MapperScreen(
         state = state,
         snackbarHostState = snackbarHostState,
+        openAppInfo = openAppInfo,
+        openAccessibilitySettings = openAccessibilitySettings,
         startLearning = viewModel::startLearning,
         cancelLearning = viewModel::cancelLearning,
         updateMethod = viewModel::updateMethod,
@@ -96,20 +98,6 @@ fun MapperRoute(
         updateHaptic = viewModel::updateHaptic,
         previewHaptic = viewModel::previewHaptic,
         save = viewModel::save,
-        setupClick = {
-            when {
-                state.serviceEnabled || state.competingServices.isNotEmpty() -> openAccessibilitySettings()
-                state.setupStage == SetupStage.TRIGGER_RESTRICTION -> {
-                    viewModel.advanceSetupStage()
-                    openAccessibilitySettings()
-                }
-                state.setupStage == SetupStage.ALLOW_RESTRICTED -> {
-                    viewModel.advanceSetupStage()
-                    openAppInfo()
-                }
-                else -> openAccessibilitySettings()
-            }
-        },
     )
 }
 
@@ -118,6 +106,8 @@ fun MapperRoute(
 private fun MapperScreen(
     state: MapperUiState,
     snackbarHostState: SnackbarHostState,
+    openAppInfo: () -> Unit,
+    openAccessibilitySettings: () -> Unit,
     startLearning: () -> Unit,
     cancelLearning: () -> Unit,
     updateMethod: (PressAction, RequestMethod) -> Unit,
@@ -126,7 +116,6 @@ private fun MapperScreen(
     updateHaptic: (HapticStrength) -> Unit,
     previewHaptic: (HapticStrength) -> Unit,
     save: () -> Unit,
-    setupClick: () -> Unit,
 ) {
     val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
     val expanded = windowSizeClass.isWidthAtLeastBreakpoint(
@@ -135,7 +124,15 @@ private fun MapperScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Essential Key") },
+                title = {
+                    Text(
+                        "Essential Key",
+                        fontFamily = FontFamily.Serif,
+                        fontStyle = FontStyle.Italic,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.7.sp,
+                    )
+                },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ),
@@ -178,7 +175,7 @@ private fun MapperScreen(
                             modifier = Modifier.weight(0.42f),
                             verticalArrangement = Arrangement.spacedBy(16.dp),
                         ) {
-                            SetupBar(state, setupClick)
+                            SetupBar(state, openAppInfo, openAccessibilitySettings)
                             MappedKeyCard(state, startLearning, cancelLearning)
                         }
                         ActionColumn(
@@ -193,7 +190,7 @@ private fun MapperScreen(
                     }
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        SetupBar(state, setupClick)
+                        SetupBar(state, openAppInfo, openAccessibilitySettings)
                         MappedKeyCard(state, startLearning, cancelLearning)
                         ActionColumn(
                             state = state,
@@ -212,9 +209,13 @@ private fun MapperScreen(
 }
 
 @Composable
-private fun SetupBar(state: MapperUiState, onClick: () -> Unit) {
-    val complete = state.serviceEnabled && state.competingServices.isEmpty()
-    val conflict = state.competingServices.isNotEmpty()
+private fun SetupBar(
+    state: MapperUiState,
+    openAppInfo: () -> Unit,
+    openAccessibilitySettings: () -> Unit,
+) {
+    val complete = state.setupStatus == SetupStatus.READY
+    val conflict = state.setupStatus == SetupStatus.CONFLICT
     val containerColor = when {
         complete -> Color(0xFF1B5E20)
         conflict -> MaterialTheme.colorScheme.errorContainer
@@ -228,34 +229,24 @@ private fun SetupBar(state: MapperUiState, onClick: () -> Unit) {
     val title = when {
         complete -> "Setup complete"
         conflict -> "Turn off ${state.competingServices.joinToString()}"
-        state.setupStage == SetupStage.TRIGGER_RESTRICTION -> "Trigger the access request"
-        state.setupStage == SetupStage.ALLOW_RESTRICTED -> "Allow restricted settings"
-        else -> "Enable accessibility service"
+        else -> "Accessibility setup required"
     }
     val subtitle = when {
         complete -> "Hardware button listener is active"
         conflict -> "Another service currently receives hardware keys"
-        state.setupStage == SetupStage.TRIGGER_RESTRICTION -> "Step 1 of 3 · Tap the blocked listener once"
-        state.setupStage == SetupStage.ALLOW_RESTRICTED -> "Step 2 of 3 · Use the App info ⋮ menu"
-        else -> "Step 3 of 3 · Turn on the listener"
-    }
-    val step = when {
-        complete -> 3
-        state.setupStage == SetupStage.TRIGGER_RESTRICTION -> 1
-        state.setupStage == SetupStage.ALLOW_RESTRICTED -> 2
-        else -> 3
+        else -> "Setup remains incomplete until Android reports the listener enabled"
     }
     Surface(
         color = containerColor,
         contentColor = contentColor,
         shape = MaterialTheme.shapes.large,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(role = Role.Button, onClick = onClick),
+        modifier = Modifier.fillMaxWidth(),
     ) {
-        Column {
+        Column(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             Row(
-                modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
@@ -267,30 +258,52 @@ private fun SetupBar(state: MapperUiState, onClick: () -> Unit) {
                     Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text(subtitle, style = MaterialTheme.typography.bodySmall)
                 }
-                SetupProgress(step = step, complete = complete, color = contentColor)
             }
-            LinearProgressIndicator(
-                progress = { step / 3f },
-                modifier = Modifier.fillMaxWidth(),
-                color = contentColor,
-                trackColor = contentColor.copy(alpha = 0.2f),
-            )
-        }
-    }
-}
-
-@Composable
-private fun SetupProgress(step: Int, complete: Boolean, color: Color) {
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        repeat(3) { index ->
-            Box(
-                Modifier
-                    .size(if (complete || index < step) 8.dp else 6.dp)
-                    .background(
-                        color.copy(alpha = if (complete || index < step) 1f else 0.35f),
-                        MaterialTheme.shapes.extraSmall,
-                    ),
-            )
+            if (!complete) {
+                if (!conflict) {
+                    Text(
+                        "Open Accessibility first. If Android blocks the listener, open App info, use ⋮ → Allow restricted settings, then return to Accessibility and enable it.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+                BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    if (maxWidth >= 350.dp) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = openAccessibilitySettings,
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text(if (conflict) "Manage services" else "Open Accessibility")
+                            }
+                            if (!conflict) {
+                                OutlinedButton(
+                                    onClick = openAppInfo,
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Text("Open App info")
+                                }
+                            }
+                        }
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = openAccessibilitySettings,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(if (conflict) "Manage services" else "Open Accessibility")
+                            }
+                            if (!conflict) {
+                                OutlinedButton(
+                                    onClick = openAppInfo,
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Text("Open App info")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -364,7 +377,7 @@ private fun ActionColumn(
                 onValueChange = updateBaseUrl,
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Controller base URL") },
-                placeholder = { Text("http://home-automation.local") },
+                placeholder = { Text("http://192.168.0.108") },
                 supportingText = state.baseUrlError?.let { error -> { Text(error) } },
                 isError = state.baseUrlError != null,
                 singleLine = true,

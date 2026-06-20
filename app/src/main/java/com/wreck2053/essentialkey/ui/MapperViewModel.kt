@@ -33,18 +33,23 @@ data class MapperUiState(
     val validationErrors: Map<PressAction, String> = emptyMap(),
     val initialized: Boolean = false,
     val saving: Boolean = false,
-    val setupStage: SetupStage = SetupStage.TRIGGER_RESTRICTION,
 ) {
     val dirty: Boolean get() =
         draftBaseUrl != settings.baseUrl ||
             draftHapticStrength != settings.hapticStrength ||
             draftActions != settings.actions
+
+    val setupStatus: SetupStatus get() = when {
+        competingServices.isNotEmpty() -> SetupStatus.CONFLICT
+        serviceEnabled -> SetupStatus.READY
+        else -> SetupStatus.REQUIRED
+    }
 }
 
-enum class SetupStage {
-    TRIGGER_RESTRICTION,
-    ALLOW_RESTRICTED,
-    ENABLE_SERVICE,
+enum class SetupStatus {
+    REQUIRED,
+    CONFLICT,
+    READY,
 }
 
 class MapperViewModel(
@@ -83,7 +88,6 @@ class MapperViewModel(
             it.copy(
                 serviceEnabled = status.serviceEnabled,
                 competingServices = status.competingKeyServices,
-                setupStage = if (status.serviceEnabled) SetupStage.ENABLE_SERVICE else it.setupStage,
             )
         }
         if (!status.serviceEnabled && _uiState.value.settings.learning) cancelLearning()
@@ -104,18 +108,6 @@ class MapperViewModel(
 
     fun updateHaptic(strength: HapticStrength) {
         _uiState.update { it.copy(draftHapticStrength = strength) }
-    }
-
-    fun advanceSetupStage() {
-        _uiState.update { current ->
-            current.copy(
-                setupStage = when (current.setupStage) {
-                    SetupStage.TRIGGER_RESTRICTION -> SetupStage.ALLOW_RESTRICTED
-                    SetupStage.ALLOW_RESTRICTED -> SetupStage.ENABLE_SERVICE
-                    SetupStage.ENABLE_SERVICE -> SetupStage.ENABLE_SERVICE
-                },
-            )
-        }
     }
 
     fun save() {
@@ -158,14 +150,17 @@ class MapperViewModel(
 
     fun previewHaptic(strength: HapticStrength) {
         val message = when (hapticEngine.perform(strength)) {
-            HapticResult.PLAYED -> null
+            HapticResult.PLAYED -> "${strength.displayName()} haptic played"
             HapticResult.OFF -> "Haptic feedback is off"
             HapticResult.UNAVAILABLE -> "This device has no vibrator"
             HapticResult.SYSTEM_DISABLED -> "Enable touch feedback in system settings"
             HapticResult.FAILED -> "Haptic feedback could not be played"
         }
-        if (message != null) _messages.tryEmit(message)
+        _messages.tryEmit(message)
     }
+
+    private fun HapticStrength.displayName(): String =
+        name.lowercase().replaceFirstChar(Char::uppercase)
 
     private fun updateAction(action: PressAction, transform: ActionSettings.() -> ActionSettings) {
         _uiState.update { current ->

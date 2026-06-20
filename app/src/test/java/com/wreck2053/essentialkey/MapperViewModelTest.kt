@@ -8,7 +8,9 @@ import com.wreck2053.essentialkey.domain.KeyIdentity
 import com.wreck2053.essentialkey.domain.PressAction
 import com.wreck2053.essentialkey.haptics.HapticEngine
 import com.wreck2053.essentialkey.haptics.HapticResult
+import com.wreck2053.essentialkey.platform.AccessibilityStatus
 import com.wreck2053.essentialkey.ui.MapperViewModel
+import com.wreck2053.essentialkey.ui.SetupStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -100,6 +102,24 @@ class MapperViewModelTest {
 
         assertTrue(viewModel.uiState.value.baseUrlError != null)
         assertEquals(AppSettings.DEFAULT_BASE_URL, repository.state.value.baseUrl)
+    }
+
+    @Test
+    fun setupOnlyCompletesFromVerifiedAccessibilityStatus() = runTest(dispatcher) {
+        val viewModel = MapperViewModel(FakeRepository(), FakeHapticEngine())
+        advanceUntilIdle()
+
+        assertEquals(SetupStatus.REQUIRED, viewModel.uiState.value.setupStatus)
+
+        viewModel.updateAccessibilityStatus(
+            AccessibilityStatus(serviceEnabled = true, competingKeyServices = emptyList()),
+        )
+        assertEquals(SetupStatus.READY, viewModel.uiState.value.setupStatus)
+
+        viewModel.updateAccessibilityStatus(
+            AccessibilityStatus(serviceEnabled = true, competingKeyServices = listOf("Button Mapper")),
+        )
+        assertEquals(SetupStatus.CONFLICT, viewModel.uiState.value.setupStatus)
     }
 
     private class FakeRepository : SettingsRepository {

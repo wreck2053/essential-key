@@ -13,23 +13,23 @@ All compilation happens in GitHub Actions. Editing and pushing source files loca
 
 ## Configure
 
-1. Tap the setup status bar. In Accessibility settings, tap **Essential Key button listener** once so Android shows the restricted-access denial.
-2. Return to the app and tap the setup bar again. In App info, open the top-right three-dot menu and tap **Allow restricted settings**. This Android 13+ step is required for APKs installed outside Google Play; signing the APK does not bypass it.
-3. Return and tap the setup bar again, then enable **Essential Key button listener**. The bar turns green when setup is complete.
+1. In the setup panel, tap **Open Accessibility** and try to enable **Essential Key button listener**.
+2. If Android blocks it, return to the app and tap **Open App info**. Open the top-right three-dot menu and tap **Allow restricted settings**. This Android 13+ step is required for APKs installed outside Google Play; signing the APK does not bypass it.
+3. Return to **Open Accessibility** and enable the listener. The app never advances setup from a tap; the panel turns green only after Android reports that the service is enabled.
 4. Tap **Detect hardware button** and press the Essential Key once.
 5. Set the controller base URL and edit the GET/POST path for each gesture. A complete URL can be used instead of a path.
 6. Choose the shared haptic strength, preview it if needed, then tap **Save actions**. Leaving a path blank creates a haptic-only action.
 
 Defaults target [`wreck2053/home-automation`](https://github.com/wreck2053/home-automation):
 
-- Controller: `http://home-automation.local`
+- Controller: `http://192.168.0.108`
 - Single press: `GET /toggle-light`
 - Double press: `GET /preset-ac`
 - Long press: `GET /toggle-fan`
 
 Button detection is intentionally disabled until Android reports that the Accessibility Service is enabled. If the **Allow restricted settings** menu item is not visible, first try enabling the service once, accept the denial, and return to App info.
 
-POST sends an empty request body. The app shows the latest HTTP status or error below each action. Requests use a 5-second connection timeout and 10-second read timeout. The shared haptic setting uses device-optimized Android effects and respects the system touch-feedback setting.
+POST sends an empty request body. The app shows the latest HTTP status or error below each action. Requests use a 5-second connection timeout and 10-second read timeout. Light, Medium, and Strong haptics use progressively longer and higher-amplitude pulses, with duration-based fallback on devices without amplitude control. Haptics respect the system touch-feedback setting.
 
 The interface uses dynamic Material You color on Android 12+, supports light/dark mode, and adapts from compact phones to landscape and tablet windows.
 
