@@ -1,6 +1,6 @@
 # Essential Key HTTP Mapper
 
-A small Android app that maps one observable hardware key to local HTTP requests for single, double, and long presses. It is designed for the Nothing Phone (3a) Essential Key, which may appear to Android as `KEYCODE_UNKNOWN` (`keyCode=0`).
+A Material 3 Android app that maps one observable hardware key to local HTTP requests and haptic feedback for single, double, and long presses. It is designed for the Nothing Phone (3a) Essential Key, which may appear to Android as `KEYCODE_UNKNOWN` (`keyCode=0`).
 
 ## Install without Android build tools
 
@@ -18,11 +18,14 @@ All compilation happens in GitHub Actions. Editing and pushing source files loca
 3. Return to the app, tap **Open accessibility settings**, and enable **Essential Key button listener**.
 4. Return to the app. Confirm that it says **Accessibility service: enabled**.
 5. Tap **Detect hardware button** and press the Essential Key once.
-6. Enter a local `http://` or `https://` URL and select GET or POST for each gesture, then tap **Save actions**.
+6. Enter a local `http://` or `https://` URL, select GET or POST, and choose Off, Light, Medium, or Strong haptic feedback for each gesture.
+7. Preview haptics if needed, then tap **Save actions**. Leaving a URL blank creates a haptic-only action.
 
 Button detection is intentionally disabled until Android reports that the Accessibility Service is enabled. If the **Allow restricted settings** menu item is not visible, first try enabling the service once, accept the denial, and return to App info.
 
-POST sends an empty request body. The app shows the latest HTTP status or error below each action. Requests use a 5-second connection timeout and 10-second read timeout.
+POST sends an empty request body. The app shows the latest HTTP status or error below each action. Requests use a 5-second connection timeout and 10-second read timeout. Haptics use device-optimized Android effects and respect the system touch-feedback setting.
+
+The interface uses dynamic Material You color on Android 12+, supports light/dark mode, and adapts from compact phones to landscape and tablet windows.
 
 ## Gesture timing
 
@@ -41,7 +44,7 @@ The service's accessibility-event callback intentionally does nothing; it observ
 GitHub Actions runs:
 
 ```text
-./gradlew testDebugUnitTest assembleDebug
+./gradlew testDebugUnitTest lintDebug assembleDebug
 ```
 
 The workflow then uploads `app/build/outputs/apk/debug/app-debug.apk` as `essential-key-debug-apk`.

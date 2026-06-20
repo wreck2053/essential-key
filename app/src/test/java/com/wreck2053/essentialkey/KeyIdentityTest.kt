@@ -1,5 +1,6 @@
 package com.wreck2053.essentialkey
 
+import com.wreck2053.essentialkey.domain.KeyIdentity
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -30,4 +31,3 @@ class KeyIdentityTest {
         descriptor: String = "device",
     ) = KeyIdentity(keyCode, scanCode, source, deviceId, descriptor, 1, 2)
 }
-

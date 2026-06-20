@@ -1,5 +1,6 @@
 package com.wreck2053.essentialkey
 
+import com.wreck2053.essentialkey.domain.PressAction
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.util.PriorityQueue
@@ -93,4 +94,3 @@ class GestureClassifierTest {
         }
     }
 }
-

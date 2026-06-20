@@ -1,5 +1,7 @@
 package com.wreck2053.essentialkey
 
+import com.wreck2053.essentialkey.domain.ActionSettings
+import com.wreck2053.essentialkey.domain.RequestMethod
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
@@ -7,12 +9,12 @@ import java.net.URL
 data class HttpResult(val statusCode: Int, val message: String)
 
 fun interface HttpTransport {
-    fun execute(config: ActionConfig): HttpResult
+    fun execute(config: ActionSettings): HttpResult
 }
 
 class HttpRequestExecutor(private val transport: HttpTransport = UrlConnectionTransport()) {
-    fun execute(config: ActionConfig): HttpResult {
-        val normalized = config.copy(method = config.method.uppercase(), url = config.url.trim())
+    fun execute(config: ActionSettings): HttpResult {
+        val normalized = config.copy(url = config.url.trim())
         validate(normalized)?.let { return HttpResult(-1, it) }
         return try {
             transport.execute(normalized)
@@ -21,8 +23,7 @@ class HttpRequestExecutor(private val transport: HttpTransport = UrlConnectionTr
         }
     }
 
-    internal fun validate(config: ActionConfig): String? {
-        if (config.method !in setOf("GET", "POST")) return "Unsupported method"
+    internal fun validate(config: ActionSettings): String? {
         if (config.url.isBlank()) return "URL is empty"
         return try {
             val uri = URI(config.url)
@@ -38,15 +39,15 @@ class HttpRequestExecutor(private val transport: HttpTransport = UrlConnectionTr
 }
 
 class UrlConnectionTransport : HttpTransport {
-    override fun execute(config: ActionConfig): HttpResult {
+    override fun execute(config: ActionSettings): HttpResult {
         val connection = URL(config.url).openConnection() as HttpURLConnection
         return try {
-            connection.requestMethod = config.method
+            connection.requestMethod = config.method.name
             connection.connectTimeout = 5_000
             connection.readTimeout = 10_000
             connection.instanceFollowRedirects = true
             connection.useCaches = false
-            if (config.method == "POST") {
+            if (config.method == RequestMethod.POST) {
                 connection.doOutput = true
                 connection.setFixedLengthStreamingMode(0)
                 connection.outputStream.use { }
@@ -58,4 +59,3 @@ class UrlConnectionTransport : HttpTransport {
         }
     }
 }
-

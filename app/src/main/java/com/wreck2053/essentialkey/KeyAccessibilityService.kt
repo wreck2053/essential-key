@@ -6,17 +6,32 @@ import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
+import com.wreck2053.essentialkey.data.SettingsRepository
+import com.wreck2053.essentialkey.domain.AppSettings
+import com.wreck2053.essentialkey.domain.KeyIdentity
+import com.wreck2053.essentialkey.domain.PressAction
+import com.wreck2053.essentialkey.haptics.HapticEngine
 import java.time.Instant
-import java.util.concurrent.Executors
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class KeyAccessibilityService : AccessibilityService() {
-    private lateinit var preferences: AppPreferences
+    private lateinit var repository: SettingsRepository
+    private lateinit var hapticEngine: HapticEngine
     private lateinit var classifier: GestureClassifier
-    private val networkExecutor = Executors.newSingleThreadExecutor()
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val requestExecutor = HttpRequestExecutor()
+    @Volatile private var currentSettings = AppSettings()
 
     override fun onServiceConnected() {
-        preferences = AppPreferences(this)
+        val container = (application as EssentialKeyApplication).container
+        repository = container.repository
+        hapticEngine = container.hapticEngine
         serviceInfo = serviceInfo.apply {
             flags = flags or AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
         }
@@ -24,21 +39,25 @@ class KeyAccessibilityService : AccessibilityService() {
             scheduler = HandlerScheduler(Handler(Looper.getMainLooper())),
             onAction = ::executeAction,
         )
+        serviceScope.launch {
+            repository.settings.collectLatest { currentSettings = it }
+        }
     }
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
-        if (!::preferences.isInitialized) return false
+        if (!::repository.isInitialized) return false
         val identity = event.toIdentity()
 
-        if (preferences.learning) {
+        if (currentSettings.learning) {
             if (event.action == KeyEvent.ACTION_UP && !event.isCanceled) {
-                preferences.saveKey(identity)
+                currentSettings = currentSettings.copy(mappedKey = identity, learning = false)
+                serviceScope.launch { repository.saveMappedKey(identity) }
                 classifier.reset()
             }
             return true
         }
 
-        val mapped = preferences.loadKey() ?: return false
+        val mapped = currentSettings.mappedKey ?: return false
         if (!mapped.matches(identity)) return false
 
         when (event.action) {
@@ -56,20 +75,27 @@ class KeyAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         if (::classifier.isInitialized) classifier.reset()
-        networkExecutor.shutdownNow()
+        serviceScope.cancel()
         super.onDestroy()
     }
 
     private fun executeAction(action: PressAction) {
-        val config = preferences.loadAction(action)
-        networkExecutor.execute {
-            val result = requestExecutor.execute(config)
+        val config = currentSettings.actions.getValue(action)
+        hapticEngine.perform(config.hapticStrength)
+        if (config.url.isBlank()) {
+            serviceScope.launch {
+                repository.saveResult(action, "${Instant.now()} — HTTP disabled")
+            }
+            return
+        }
+        serviceScope.launch {
+            val result = withContext(Dispatchers.IO) { requestExecutor.execute(config) }
             val status = if (result.statusCode >= 0) {
                 "HTTP ${result.statusCode} ${result.message}".trim()
             } else {
                 "Error: ${result.message}"
             }
-            preferences.saveResult(action, "${Instant.now()} — $status")
+            repository.saveResult(action, "${Instant.now()} — $status")
         }
     }
 

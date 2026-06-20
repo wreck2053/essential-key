@@ -1,4 +1,4 @@
-package com.wreck2053.essentialkey
+package com.wreck2053.essentialkey.domain
 
 enum class PressAction {
     SINGLE,
@@ -6,9 +6,22 @@ enum class PressAction {
     LONG,
 }
 
-data class ActionConfig(
-    val method: String = "GET",
+enum class RequestMethod {
+    GET,
+    POST,
+}
+
+enum class HapticStrength {
+    OFF,
+    LIGHT,
+    MEDIUM,
+    STRONG,
+}
+
+data class ActionSettings(
+    val method: RequestMethod = RequestMethod.GET,
     val url: String = "",
+    val hapticStrength: HapticStrength = HapticStrength.MEDIUM,
 )
 
 data class KeyIdentity(
@@ -31,7 +44,13 @@ data class KeyIdentity(
         return deviceId == other.deviceId && source == other.source
     }
 
-    fun displayText(): String = buildString {
+    fun summary(): String = if (keyCode == 0) {
+        "Unknown key · scan code $scanCode"
+    } else {
+        "Key code $keyCode · scan code $scanCode"
+    }
+
+    fun technicalDetails(): String = buildString {
         append("keyCode=").append(keyCode)
         append(", scanCode=").append(scanCode)
         append(", source=0x").append(source.toString(16))
@@ -39,6 +58,18 @@ data class KeyIdentity(
         append(", vendor=").append(vendorId)
         append(", product=").append(productId)
         if (descriptor.isNotBlank()) append("\ndescriptor=").append(descriptor)
+    }
+}
+
+data class AppSettings(
+    val mappedKey: KeyIdentity? = null,
+    val actions: Map<PressAction, ActionSettings> = defaultActions(),
+    val results: Map<PressAction, String?> = PressAction.entries.associateWith { null },
+    val learning: Boolean = false,
+) {
+    companion object {
+        fun defaultActions(): Map<PressAction, ActionSettings> =
+            PressAction.entries.associateWith { ActionSettings() }
     }
 }
 

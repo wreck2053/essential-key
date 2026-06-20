@@ -1,5 +1,7 @@
 package com.wreck2053.essentialkey
 
+import com.wreck2053.essentialkey.domain.PressAction
+
 class GestureClassifier(
     private val scheduler: Scheduler,
     private val onAction: (PressAction) -> Unit,
@@ -78,4 +80,3 @@ class GestureClassifier(
         singleTask = null
     }
 }
-
