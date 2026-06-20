@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -25,7 +27,6 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
@@ -36,7 +37,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -60,6 +60,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
@@ -87,15 +88,28 @@ fun MapperRoute(
     MapperScreen(
         state = state,
         snackbarHostState = snackbarHostState,
-        openAppInfo = openAppInfo,
-        openAccessibilitySettings = openAccessibilitySettings,
         startLearning = viewModel::startLearning,
         cancelLearning = viewModel::cancelLearning,
         updateMethod = viewModel::updateMethod,
         updateUrl = viewModel::updateUrl,
+        updateBaseUrl = viewModel::updateBaseUrl,
         updateHaptic = viewModel::updateHaptic,
         previewHaptic = viewModel::previewHaptic,
         save = viewModel::save,
+        setupClick = {
+            when {
+                state.serviceEnabled || state.competingServices.isNotEmpty() -> openAccessibilitySettings()
+                state.setupStage == SetupStage.TRIGGER_RESTRICTION -> {
+                    viewModel.advanceSetupStage()
+                    openAccessibilitySettings()
+                }
+                state.setupStage == SetupStage.ALLOW_RESTRICTED -> {
+                    viewModel.advanceSetupStage()
+                    openAppInfo()
+                }
+                else -> openAccessibilitySettings()
+            }
+        },
     )
 }
 
@@ -104,15 +118,15 @@ fun MapperRoute(
 private fun MapperScreen(
     state: MapperUiState,
     snackbarHostState: SnackbarHostState,
-    openAppInfo: () -> Unit,
-    openAccessibilitySettings: () -> Unit,
     startLearning: () -> Unit,
     cancelLearning: () -> Unit,
     updateMethod: (PressAction, RequestMethod) -> Unit,
     updateUrl: (PressAction, String) -> Unit,
-    updateHaptic: (PressAction, HapticStrength) -> Unit,
+    updateBaseUrl: (String) -> Unit,
+    updateHaptic: (HapticStrength) -> Unit,
     previewHaptic: (HapticStrength) -> Unit,
     save: () -> Unit,
+    setupClick: () -> Unit,
 ) {
     val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
     val expanded = windowSizeClass.isWidthAtLeastBreakpoint(
@@ -164,7 +178,7 @@ private fun MapperScreen(
                             modifier = Modifier.weight(0.42f),
                             verticalArrangement = Arrangement.spacedBy(16.dp),
                         ) {
-                            SetupCard(state, openAppInfo, openAccessibilitySettings)
+                            SetupBar(state, setupClick)
                             MappedKeyCard(state, startLearning, cancelLearning)
                         }
                         ActionColumn(
@@ -172,18 +186,20 @@ private fun MapperScreen(
                             state = state,
                             updateMethod = updateMethod,
                             updateUrl = updateUrl,
+                            updateBaseUrl = updateBaseUrl,
                             updateHaptic = updateHaptic,
                             previewHaptic = previewHaptic,
                         )
                     }
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        SetupCard(state, openAppInfo, openAccessibilitySettings)
+                        SetupBar(state, setupClick)
                         MappedKeyCard(state, startLearning, cancelLearning)
                         ActionColumn(
                             state = state,
                             updateMethod = updateMethod,
                             updateUrl = updateUrl,
+                            updateBaseUrl = updateBaseUrl,
                             updateHaptic = updateHaptic,
                             previewHaptic = previewHaptic,
                         )
@@ -196,37 +212,85 @@ private fun MapperScreen(
 }
 
 @Composable
-private fun SetupCard(
-    state: MapperUiState,
-    openAppInfo: () -> Unit,
-    openAccessibilitySettings: () -> Unit,
-) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            SectionTitle("Setup")
-            StatusLine(
-                success = state.serviceEnabled,
-                successText = "Accessibility service enabled",
-                failureText = "Accessibility service disabled",
+private fun SetupBar(state: MapperUiState, onClick: () -> Unit) {
+    val complete = state.serviceEnabled && state.competingServices.isEmpty()
+    val conflict = state.competingServices.isNotEmpty()
+    val containerColor = when {
+        complete -> Color(0xFF1B5E20)
+        conflict -> MaterialTheme.colorScheme.errorContainer
+        else -> MaterialTheme.colorScheme.tertiaryContainer
+    }
+    val contentColor = when {
+        complete -> Color.White
+        conflict -> MaterialTheme.colorScheme.onErrorContainer
+        else -> MaterialTheme.colorScheme.onTertiaryContainer
+    }
+    val title = when {
+        complete -> "Setup complete"
+        conflict -> "Turn off ${state.competingServices.joinToString()}"
+        state.setupStage == SetupStage.TRIGGER_RESTRICTION -> "Trigger the access request"
+        state.setupStage == SetupStage.ALLOW_RESTRICTED -> "Allow restricted settings"
+        else -> "Enable accessibility service"
+    }
+    val subtitle = when {
+        complete -> "Hardware button listener is active"
+        conflict -> "Another service currently receives hardware keys"
+        state.setupStage == SetupStage.TRIGGER_RESTRICTION -> "Step 1 of 3 · Tap the blocked listener once"
+        state.setupStage == SetupStage.ALLOW_RESTRICTED -> "Step 2 of 3 · Use the App info ⋮ menu"
+        else -> "Step 3 of 3 · Turn on the listener"
+    }
+    val step = when {
+        complete -> 3
+        state.setupStage == SetupStage.TRIGGER_RESTRICTION -> 1
+        state.setupStage == SetupStage.ALLOW_RESTRICTED -> 2
+        else -> 3
+    }
+    Surface(
+        color = containerColor,
+        contentColor = contentColor,
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick),
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = if (complete) Icons.Default.CheckCircle else if (conflict) Icons.Default.Warning else Icons.Default.Error,
+                    contentDescription = null,
+                )
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(subtitle, style = MaterialTheme.typography.bodySmall)
+                }
+                SetupProgress(step = step, complete = complete, color = contentColor)
+            }
+            LinearProgressIndicator(
+                progress = { step / 3f },
+                modifier = Modifier.fillMaxWidth(),
+                color = contentColor,
+                trackColor = contentColor.copy(alpha = 0.2f),
             )
-            if (!state.serviceEnabled) {
-                Text(
-                    "Sideloaded apps must first be allowed under restricted settings, then enabled in Accessibility.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                OutlinedButton(onClick = openAppInfo, modifier = Modifier.fillMaxWidth()) {
-                    Text("1. Allow restricted settings")
-                }
-                Button(onClick = openAccessibilitySettings, modifier = Modifier.fillMaxWidth()) {
-                    Text("2. Enable accessibility service")
-                }
-            }
-            if (state.competingServices.isNotEmpty()) {
-                WarningPanel(
-                    "Turn off ${state.competingServices.joinToString()} while using this app. Android sends hardware key events to only one filtering service.",
-                )
-            }
+        }
+    }
+}
+
+@Composable
+private fun SetupProgress(step: Int, complete: Boolean, color: Color) {
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        repeat(3) { index ->
+            Box(
+                Modifier
+                    .size(if (complete || index < step) 8.dp else 6.dp)
+                    .background(
+                        color.copy(alpha = if (complete || index < step) 1f else 0.35f),
+                        MaterialTheme.shapes.extraSmall,
+                    ),
+            )
         }
     }
 }
@@ -280,125 +344,167 @@ private fun MappedKeyCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ActionColumn(
     state: MapperUiState,
     updateMethod: (PressAction, RequestMethod) -> Unit,
     updateUrl: (PressAction, String) -> Unit,
-    updateHaptic: (PressAction, HapticStrength) -> Unit,
+    updateBaseUrl: (String) -> Unit,
+    updateHaptic: (HapticStrength) -> Unit,
     previewHaptic: (HapticStrength) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        SectionTitle("Actions")
-        PressAction.entries.forEach { action ->
-            ActionCard(
-                action = action,
-                settings = state.draftActions.getValue(action),
-                result = state.settings.results[action],
-                error = state.validationErrors[action],
-                updateMethod = { updateMethod(action, it) },
-                updateUrl = { updateUrl(action, it) },
-                updateHaptic = { updateHaptic(action, it) },
-                previewHaptic = previewHaptic,
+    var hapticMenuExpanded by rememberSaveable { mutableStateOf(false) }
+    Card(modifier) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            SectionTitle("Actions")
+            OutlinedTextField(
+                value = state.draftBaseUrl,
+                onValueChange = updateBaseUrl,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Controller base URL") },
+                placeholder = { Text("http://home-automation.local") },
+                supportingText = state.baseUrlError?.let { error -> { Text(error) } },
+                isError = state.baseUrlError != null,
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
             )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                ExposedDropdownMenuBox(
+                    expanded = hapticMenuExpanded,
+                    onExpandedChange = { hapticMenuExpanded = it },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    OutlinedTextField(
+                        value = state.draftHapticStrength.displayName(),
+                        onValueChange = {},
+                        readOnly = true,
+                        modifier = Modifier.menuAnchor().fillMaxWidth(),
+                        label = { Text("Haptic feedback") },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = hapticMenuExpanded)
+                        },
+                    )
+                    ExposedDropdownMenu(
+                        expanded = hapticMenuExpanded,
+                        onDismissRequest = { hapticMenuExpanded = false },
+                    ) {
+                        HapticStrength.entries.forEach { strength ->
+                            DropdownMenuItem(
+                                text = { Text(strength.displayName()) },
+                                onClick = {
+                                    updateHaptic(strength)
+                                    hapticMenuExpanded = false
+                                },
+                            )
+                        }
+                    }
+                }
+                TextButton(
+                    onClick = { previewHaptic(state.draftHapticStrength) },
+                    enabled = state.draftHapticStrength != HapticStrength.OFF,
+                ) {
+                    Text("Preview")
+                }
+            }
+            PressAction.entries.forEach { action ->
+                HorizontalDivider()
+                CompactActionEditor(
+                    action = action,
+                    settings = state.draftActions.getValue(action),
+                    result = state.settings.results[action],
+                    error = state.validationErrors[action],
+                    updateMethod = { updateMethod(action, it) },
+                    updateUrl = { updateUrl(action, it) },
+                )
+            }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ActionCard(
+private fun CompactActionEditor(
     action: PressAction,
     settings: ActionSettings,
     result: String?,
     error: String?,
     updateMethod: (RequestMethod) -> Unit,
     updateUrl: (String) -> Unit,
-    updateHaptic: (HapticStrength) -> Unit,
-    previewHaptic: (HapticStrength) -> Unit,
 ) {
-    var hapticMenuExpanded by rememberSaveable(action) { mutableStateOf(false) }
-    Card {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    shape = MaterialTheme.shapes.small,
-                ) {
-                    Text(
-                        action.badge(),
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        fontWeight = FontWeight.Bold,
-                    )
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            if (maxWidth >= 360.dp) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ActionIdentity(action, Modifier.weight(1f))
+                    MethodSelector(settings.method, updateMethod, Modifier.width(144.dp))
                 }
-                Spacer(Modifier.width(12.dp))
-                Text(action.title(), style = MaterialTheme.typography.titleLarge)
-            }
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                RequestMethod.entries.forEachIndexed { index, method ->
-                    SegmentedButton(
-                        selected = settings.method == method,
-                        onClick = { updateMethod(method) },
-                        shape = SegmentedButtonDefaults.itemShape(index, RequestMethod.entries.size),
-                    ) {
-                        Text(method.name)
-                    }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ActionIdentity(action)
+                    MethodSelector(settings.method, updateMethod, Modifier.fillMaxWidth())
                 }
             }
-            OutlinedTextField(
-                value = settings.url,
-                onValueChange = updateUrl,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Local URL") },
-                placeholder = { Text("http://192.168.1.10/action") },
-                supportingText = {
-                    Text(error ?: "Leave blank to disable the HTTP request")
-                },
-                isError = error != null,
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+        }
+        OutlinedTextField(
+            value = settings.url,
+            onValueChange = updateUrl,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Path or complete URL") },
+            placeholder = { Text(action.defaultPath()) },
+            supportingText = if (error != null) ({ Text(error) }) else null,
+            isError = error != null,
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+        )
+        if (result != null) {
+            ResultLine(result)
+        }
+    }
+}
+
+@Composable
+private fun ActionIdentity(action: PressAction, modifier: Modifier = Modifier) {
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        Surface(
+            color = MaterialTheme.colorScheme.primaryContainer,
+            shape = MaterialTheme.shapes.small,
+        ) {
+            Text(
+                action.badge(),
+                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
             )
-            ExposedDropdownMenuBox(
-                expanded = hapticMenuExpanded,
-                onExpandedChange = { hapticMenuExpanded = it },
+        }
+        Spacer(Modifier.width(10.dp))
+        Text(
+            action.title(),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+@Composable
+private fun MethodSelector(
+    selectedMethod: RequestMethod,
+    updateMethod: (RequestMethod) -> Unit,
+    modifier: Modifier,
+) {
+    SingleChoiceSegmentedButtonRow(modifier) {
+        RequestMethod.entries.forEachIndexed { index, method ->
+            SegmentedButton(
+                selected = selectedMethod == method,
+                onClick = { updateMethod(method) },
+                shape = SegmentedButtonDefaults.itemShape(index, RequestMethod.entries.size),
             ) {
-                OutlinedTextField(
-                    value = settings.hapticStrength.displayName(),
-                    onValueChange = {},
-                    readOnly = true,
-                    modifier = Modifier.menuAnchor().fillMaxWidth(),
-                    label = { Text("Haptic feedback") },
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = hapticMenuExpanded)
-                    },
-                )
-                ExposedDropdownMenu(
-                    expanded = hapticMenuExpanded,
-                    onDismissRequest = { hapticMenuExpanded = false },
-                ) {
-                    HapticStrength.entries.forEach { strength ->
-                        DropdownMenuItem(
-                            text = { Text(strength.displayName()) },
-                            onClick = {
-                                updateHaptic(strength)
-                                hapticMenuExpanded = false
-                            },
-                        )
-                    }
-                }
-            }
-            TextButton(
-                onClick = { previewHaptic(settings.hapticStrength) },
-                enabled = settings.hapticStrength != HapticStrength.OFF,
-                modifier = Modifier.align(Alignment.End),
-            ) {
-                Text("Preview haptic")
-            }
-            if (result != null) {
-                HorizontalDivider()
-                ResultLine(result)
+                Text(method.name, style = MaterialTheme.typography.labelMedium)
             }
         }
     }
@@ -442,30 +548,6 @@ private fun SectionTitle(text: String) {
 }
 
 @Composable
-private fun StatusLine(success: Boolean, successText: String, failureText: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            imageVector = if (success) Icons.Default.CheckCircle else Icons.Default.Error,
-            contentDescription = null,
-            tint = if (success) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error,
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(if (success) successText else failureText, fontWeight = FontWeight.Medium)
-    }
-}
-
-@Composable
-private fun WarningPanel(message: String) {
-    Surface(color = MaterialTheme.colorScheme.errorContainer, shape = MaterialTheme.shapes.medium) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
-            Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
-            Spacer(Modifier.width(8.dp))
-            Text(message, color = MaterialTheme.colorScheme.onErrorContainer)
-        }
-    }
-}
-
-@Composable
 private fun ResultLine(result: String) {
     val isError = result.contains("Error:")
     Row(verticalAlignment = Alignment.Top) {
@@ -489,6 +571,12 @@ private fun PressAction.badge(): String = when (this) {
     PressAction.SINGLE -> "1×"
     PressAction.DOUBLE -> "2×"
     PressAction.LONG -> "HOLD"
+}
+
+private fun PressAction.defaultPath(): String = when (this) {
+    PressAction.SINGLE -> "/toggle-light"
+    PressAction.DOUBLE -> "/preset-ac"
+    PressAction.LONG -> "/toggle-fan"
 }
 
 private fun HapticStrength.displayName(): String = name.lowercase().replaceFirstChar(Char::uppercase)

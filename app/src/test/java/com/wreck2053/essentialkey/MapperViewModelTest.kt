@@ -46,7 +46,7 @@ class MapperViewModelTest {
 
         viewModel.updateUrl(PressAction.SINGLE, "http://192.168.1.10/hook")
         assertTrue(viewModel.uiState.value.dirty)
-        assertEquals("", repository.state.value.actions.getValue(PressAction.SINGLE).url)
+        assertEquals("/toggle-light", repository.state.value.actions.getValue(PressAction.SINGLE).url)
 
         viewModel.save()
         advanceUntilIdle()
@@ -65,14 +65,56 @@ class MapperViewModelTest {
         advanceUntilIdle()
 
         assertTrue(viewModel.uiState.value.validationErrors.containsKey(PressAction.LONG))
-        assertEquals("", repository.state.value.actions.getValue(PressAction.LONG).url)
+        assertEquals("/toggle-fan", repository.state.value.actions.getValue(PressAction.LONG).url)
+    }
+
+    @Test
+    fun sharedBaseUrlAndHapticRemainDraftUntilSave() = runTest(dispatcher) {
+        val repository = FakeRepository()
+        val viewModel = MapperViewModel(repository, FakeHapticEngine())
+        advanceUntilIdle()
+
+        viewModel.updateBaseUrl("http://192.168.1.20")
+        viewModel.updateHaptic(HapticStrength.STRONG)
+
+        assertEquals(AppSettings.DEFAULT_BASE_URL, repository.state.value.baseUrl)
+        assertEquals(HapticStrength.MEDIUM, repository.state.value.hapticStrength)
+
+        viewModel.save()
+        advanceUntilIdle()
+
+        assertEquals("http://192.168.1.20", repository.state.value.baseUrl)
+        assertEquals(HapticStrength.STRONG, repository.state.value.hapticStrength)
+        assertFalse(viewModel.uiState.value.dirty)
+    }
+
+    @Test
+    fun invalidBaseUrlIsNotSaved() = runTest(dispatcher) {
+        val repository = FakeRepository()
+        val viewModel = MapperViewModel(repository, FakeHapticEngine())
+        advanceUntilIdle()
+
+        viewModel.updateBaseUrl("home-automation.local")
+        viewModel.save()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.baseUrlError != null)
+        assertEquals(AppSettings.DEFAULT_BASE_URL, repository.state.value.baseUrl)
     }
 
     private class FakeRepository : SettingsRepository {
         val state = MutableStateFlow(AppSettings())
         override val settings = state
-        override suspend fun saveActions(actions: Map<PressAction, ActionSettings>) {
-            state.value = state.value.copy(actions = actions)
+        override suspend fun saveConfiguration(
+            baseUrl: String,
+            hapticStrength: HapticStrength,
+            actions: Map<PressAction, ActionSettings>,
+        ) {
+            state.value = state.value.copy(
+                baseUrl = baseUrl,
+                hapticStrength = hapticStrength,
+                actions = actions,
+            )
         }
         override suspend fun setLearning(learning: Boolean) {
             state.value = state.value.copy(learning = learning)

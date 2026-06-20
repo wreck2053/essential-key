@@ -1,7 +1,6 @@
 package com.wreck2053.essentialkey
 
 import com.wreck2053.essentialkey.domain.ActionSettings
-import com.wreck2053.essentialkey.domain.HapticStrength
 import com.wreck2053.essentialkey.domain.RequestMethod
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -18,7 +17,7 @@ class HttpRequestExecutorTest {
 
         val result = executor.execute(ActionSettings(RequestMethod.POST, " http://192.168.1.5/hook "))
 
-        assertEquals(ActionSettings(RequestMethod.POST, "http://192.168.1.5/hook", HapticStrength.MEDIUM), received)
+        assertEquals(ActionSettings(RequestMethod.POST, "http://192.168.1.5/hook"), received)
         assertEquals(204, result.statusCode)
     }
 

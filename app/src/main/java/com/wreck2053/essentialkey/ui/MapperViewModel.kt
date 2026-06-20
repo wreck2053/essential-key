@@ -24,14 +24,27 @@ import kotlinx.coroutines.launch
 
 data class MapperUiState(
     val settings: AppSettings = AppSettings(),
+    val draftBaseUrl: String = AppSettings.DEFAULT_BASE_URL,
+    val draftHapticStrength: HapticStrength = HapticStrength.MEDIUM,
     val draftActions: Map<PressAction, ActionSettings> = AppSettings.defaultActions(),
     val serviceEnabled: Boolean = false,
     val competingServices: List<String> = emptyList(),
+    val baseUrlError: String? = null,
     val validationErrors: Map<PressAction, String> = emptyMap(),
     val initialized: Boolean = false,
     val saving: Boolean = false,
+    val setupStage: SetupStage = SetupStage.TRIGGER_RESTRICTION,
 ) {
-    val dirty: Boolean get() = draftActions != settings.actions
+    val dirty: Boolean get() =
+        draftBaseUrl != settings.baseUrl ||
+            draftHapticStrength != settings.hapticStrength ||
+            draftActions != settings.actions
+}
+
+enum class SetupStage {
+    TRIGGER_RESTRICTION,
+    ALLOW_RESTRICTED,
+    ENABLE_SERVICE,
 }
 
 class MapperViewModel(
@@ -53,7 +66,13 @@ class MapperViewModel(
                     } else {
                         current.draftActions
                     }
-                    current.copy(settings = settings, draftActions = draft, initialized = true)
+                    current.copy(
+                        settings = settings,
+                        draftBaseUrl = if (!current.initialized || !current.dirty) settings.baseUrl else current.draftBaseUrl,
+                        draftHapticStrength = if (!current.initialized || !current.dirty) settings.hapticStrength else current.draftHapticStrength,
+                        draftActions = draft,
+                        initialized = true,
+                    )
                 }
             }
         }
@@ -64,6 +83,7 @@ class MapperViewModel(
             it.copy(
                 serviceEnabled = status.serviceEnabled,
                 competingServices = status.competingKeyServices,
+                setupStage = if (status.serviceEnabled) SetupStage.ENABLE_SERVICE else it.setupStage,
             )
         }
         if (!status.serviceEnabled && _uiState.value.settings.learning) cancelLearning()
@@ -78,23 +98,46 @@ class MapperViewModel(
         _uiState.update { it.copy(validationErrors = it.validationErrors - action) }
     }
 
-    fun updateHaptic(action: PressAction, strength: HapticStrength) = updateAction(action) {
-        copy(hapticStrength = strength)
+    fun updateBaseUrl(baseUrl: String) {
+        _uiState.update { it.copy(draftBaseUrl = baseUrl, baseUrlError = null) }
+    }
+
+    fun updateHaptic(strength: HapticStrength) {
+        _uiState.update { it.copy(draftHapticStrength = strength) }
+    }
+
+    fun advanceSetupStage() {
+        _uiState.update { current ->
+            current.copy(
+                setupStage = when (current.setupStage) {
+                    SetupStage.TRIGGER_RESTRICTION -> SetupStage.ALLOW_RESTRICTED
+                    SetupStage.ALLOW_RESTRICTED -> SetupStage.ENABLE_SERVICE
+                    SetupStage.ENABLE_SERVICE -> SetupStage.ENABLE_SERVICE
+                },
+            )
+        }
     }
 
     fun save() {
         val actions = _uiState.value.draftActions
+        val baseUrlError = validateBaseUrl(_uiState.value.draftBaseUrl)
         val errors = actions.mapNotNull { (action, config) ->
-            validateUrl(config.url)?.let { action to it }
+            validateEndpoint(config.url)?.let { action to it }
         }.toMap()
-        if (errors.isNotEmpty()) {
-            _uiState.update { it.copy(validationErrors = errors) }
-            _messages.tryEmit("Fix the highlighted URLs before saving")
+        if (baseUrlError != null || errors.isNotEmpty()) {
+            _uiState.update { it.copy(baseUrlError = baseUrlError, validationErrors = errors) }
+            _messages.tryEmit(baseUrlError ?: "Fix the highlighted paths before saving")
             return
         }
         viewModelScope.launch {
-            _uiState.update { it.copy(saving = true, validationErrors = emptyMap()) }
-            runCatching { repository.saveActions(actions) }
+            _uiState.update { it.copy(saving = true, baseUrlError = null, validationErrors = emptyMap()) }
+            runCatching {
+                repository.saveConfiguration(
+                    baseUrl = _uiState.value.draftBaseUrl,
+                    hapticStrength = _uiState.value.draftHapticStrength,
+                    actions = actions,
+                )
+            }
                 .onSuccess { _messages.emit("Actions saved") }
                 .onFailure { _messages.emit("Could not save actions") }
             _uiState.update { it.copy(saving = false) }
@@ -134,8 +177,21 @@ class MapperViewModel(
         }
     }
 
-    internal fun validateUrl(value: String): String? {
+    internal fun validateBaseUrl(value: String): String? {
+        if (value.isBlank()) return "Enter the controller base URL"
+        return validateAbsoluteUrl(value)
+    }
+
+    internal fun validateEndpoint(value: String): String? {
         if (value.isBlank()) return null
+        if (value.startsWith("/")) return null
+        if (!value.startsWith("http://") && !value.startsWith("https://")) {
+            return "Start paths with / or enter a complete URL"
+        }
+        return validateAbsoluteUrl(value)
+    }
+
+    private fun validateAbsoluteUrl(value: String): String? {
         return try {
             val uri = URI(value.trim())
             if (uri.scheme !in setOf("http", "https") || uri.host.isNullOrBlank()) {
@@ -157,4 +213,3 @@ class MapperViewModel(
             MapperViewModel(repository, hapticEngine) as T
     }
 }
-

@@ -22,15 +22,16 @@ class DataStoreSettingsMapperTest {
             stringPreferencesKey("SINGLE_method") to "POST",
             stringPreferencesKey("SINGLE_url") to "http://192.168.1.5/hook",
             stringPreferencesKey("SINGLE_haptic") to "STRONG",
+            stringPreferencesKey("base_url") to "http://home-automation.local",
         )
 
         val settings = preferencesToSettings(preferences)
 
         assertEquals(703, settings.mappedKey?.scanCode)
         assertEquals(RequestMethod.POST, settings.actions.getValue(PressAction.SINGLE).method)
-        assertEquals(HapticStrength.STRONG, settings.actions.getValue(PressAction.SINGLE).hapticStrength)
-        assertEquals(HapticStrength.MEDIUM, settings.actions.getValue(PressAction.DOUBLE).hapticStrength)
+        assertEquals(HapticStrength.STRONG, settings.hapticStrength)
+        assertEquals("http://home-automation.local", settings.baseUrl)
+        assertEquals("/preset-ac", settings.actions.getValue(PressAction.DOUBLE).url)
         assertNotNull(settings.results)
     }
 }
-

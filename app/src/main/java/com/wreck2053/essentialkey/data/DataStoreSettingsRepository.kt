@@ -37,13 +37,18 @@ class DataStoreSettingsRepository(context: Context) : SettingsRepository {
         }
         .map(::preferencesToSettings)
 
-    override suspend fun saveActions(actions: Map<PressAction, ActionSettings>) {
+    override suspend fun saveConfiguration(
+        baseUrl: String,
+        hapticStrength: HapticStrength,
+        actions: Map<PressAction, ActionSettings>,
+    ) {
         dataStore.edit { preferences ->
+            preferences[Keys.BASE_URL] = baseUrl.trim().trimEnd('/')
+            preferences[Keys.COMMON_HAPTIC] = hapticStrength.name
             PressAction.entries.forEach { action ->
                 val config = actions.getValue(action)
                 preferences[Keys.method(action)] = config.method.name
                 preferences[Keys.url(action)] = config.url.trim()
-                preferences[Keys.haptic(action)] = config.hapticStrength.name
             }
         }
     }
@@ -86,19 +91,31 @@ internal fun preferencesToSettings(preferences: Preferences): AppSettings {
     } else {
         null
     }
+    val defaults = AppSettings.defaultActions()
     val actions = PressAction.entries.associateWith { action ->
         ActionSettings(
             method = preferences[Keys.method(action)].toEnumOrDefault(RequestMethod.GET),
-            url = preferences[Keys.url(action)].orEmpty(),
-            hapticStrength = preferences[Keys.haptic(action)].toEnumOrDefault(HapticStrength.MEDIUM),
+            url = preferences[Keys.url(action)] ?: defaults.getValue(action).url,
         )
     }
     val results = PressAction.entries.associateWith { preferences[Keys.result(it)] }
-    return AppSettings(mappedKey, actions, results, preferences[Keys.LEARNING] ?: false)
+    val commonHaptic = (
+        preferences[Keys.COMMON_HAPTIC] ?: preferences[Keys.haptic(PressAction.SINGLE)]
+        ).toEnumOrDefault(HapticStrength.MEDIUM)
+    return AppSettings(
+        mappedKey = mappedKey,
+        baseUrl = preferences[Keys.BASE_URL] ?: AppSettings.DEFAULT_BASE_URL,
+        hapticStrength = commonHaptic,
+        actions = actions,
+        results = results,
+        learning = preferences[Keys.LEARNING] ?: false,
+    )
 }
 
 private object Keys {
     val MIGRATED = booleanPreferencesKey("legacy_migrated")
+    val BASE_URL = stringPreferencesKey("base_url")
+    val COMMON_HAPTIC = stringPreferencesKey("common_haptic")
     val LEARNING = booleanPreferencesKey("learning")
     val KEY_PRESENT = booleanPreferencesKey("key_present")
     val KEY_CODE = intPreferencesKey("key_code")

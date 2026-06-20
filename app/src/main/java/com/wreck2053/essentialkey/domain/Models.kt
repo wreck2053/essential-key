@@ -21,7 +21,6 @@ enum class HapticStrength {
 data class ActionSettings(
     val method: RequestMethod = RequestMethod.GET,
     val url: String = "",
-    val hapticStrength: HapticStrength = HapticStrength.MEDIUM,
 )
 
 data class KeyIdentity(
@@ -63,13 +62,31 @@ data class KeyIdentity(
 
 data class AppSettings(
     val mappedKey: KeyIdentity? = null,
+    val baseUrl: String = DEFAULT_BASE_URL,
+    val hapticStrength: HapticStrength = HapticStrength.MEDIUM,
     val actions: Map<PressAction, ActionSettings> = defaultActions(),
     val results: Map<PressAction, String?> = PressAction.entries.associateWith { null },
     val learning: Boolean = false,
 ) {
     companion object {
+        const val DEFAULT_BASE_URL = "http://home-automation.local"
+
         fun defaultActions(): Map<PressAction, ActionSettings> =
-            PressAction.entries.associateWith { ActionSettings() }
+            mapOf(
+                PressAction.SINGLE to ActionSettings(url = "/toggle-light"),
+                PressAction.DOUBLE to ActionSettings(url = "/preset-ac"),
+                PressAction.LONG to ActionSettings(url = "/toggle-fan"),
+            )
     }
 }
 
+object ActionUrlResolver {
+    fun resolve(baseUrl: String, endpoint: String): String {
+        val trimmedEndpoint = endpoint.trim()
+        if (trimmedEndpoint.isBlank()) return ""
+        if (trimmedEndpoint.startsWith("http://") || trimmedEndpoint.startsWith("https://")) {
+            return trimmedEndpoint
+        }
+        return "${baseUrl.trim().trimEnd('/')}/${trimmedEndpoint.trimStart('/')}"
+    }
+}
