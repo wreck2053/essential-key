@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nothing Essential Key Remapping Use Cases</title>
+  <meta name="description" content="Ideas for remapping single, double, and long presses of the Nothing or CMF Essential Key: flashlight, camera, apps, Android controls, and home automation.">
+  <link rel="canonical" href="https://wreck2053.github.io/essential-key/use-cases/">
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+  <header class="site-header"><nav class="nav wrap"><a class="brand" href="../">Essential Key Remapper</a><div class="nav-links"><a href="../setup/">Setup</a><a href="../compatibility/">Compatibility</a><a href="../download/">Download</a></div></nav></header>
+  <main>
+    <section class="page-hero wrap"><div class="eyebrow">Action ideas</div><h1>One key. Three independent shortcuts.</h1><p class="lead">Use the examples below as a starting point, then assign any supported combination to your own gestures.</p></section>
+    <article class="content wrap">
+      <div class="grid">
+        <section class="card"><h3>Fast utilities</h3><p>Flashlight, camera, assistant, sound mode, screenshot, lock screen, notifications, or Quick Settings.</p></section>
+        <section class="card"><h3>Open anything</h3><p>Launch an installed app or open an HTTP or HTTPS URL.</p></section>
+        <section class="card"><h3>Media and navigation</h3><p>Play/pause, next, previous, Home, Back, Recents, or the Android power menu.</p></section>
+      </div>
+      <h2>Suggested everyday layout</h2>
+      <div class="table-wrap"><table><thead><tr><th>Gesture</th><th>Example</th><th>Why</th></tr></thead><tbody>
+        <tr><td>Single press</td><td>Flashlight</td><td>Fast and easy to remember.</td></tr>
+        <tr><td>Double press</td><td>Camera</td><td>Useful without unlocking the phone workflow first.</td></tr>
+        <tr><td>Long press</td><td>Favorite app or assistant</td><td>Intentional gesture for a larger action.</td></tr>
+      </tbody></table></div>
+      <h2>Home automation</h2>
+      <p>Each gesture can send an HTTP GET or POST request. Configure a local base URL and a path such as <code>/toggle-light</code>, <code>/preset-ac</code>, or <code>/toggle-fan</code>.</p>
+      <img src="../assets/http-action.png" alt="HTTP GET action configured for a single Essential Key press" width="722" height="1600">
+      <div class="notice">HTTP requests can affect devices and services on your network. Use endpoints you control, prefer HTTPS outside trusted local networks, and avoid placing secrets directly in URLs.</div>
+      <h2>Separate actions for every gesture</h2>
+      <img src="../assets/gesture-actions.png" alt="Single press, double press, and long press action list" width="722" height="1600">
+      <div class="cta"><h3>Want to configure your own layout?</h3><div class="actions"><a class="button" href="../setup/">Setup guide</a><a class="button secondary" href="../download/">Download</a></div></div>
+    </article>
+  </main>
+  <footer class="site-footer"><div class="footer-grid wrap"><span>Essential Key Remapper</span><div class="footer-links"><a href="../privacy/">Privacy</a><a href="../faq/">FAQ</a></div></div></footer>
+</body>
+</html>

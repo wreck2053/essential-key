@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Essential Key Remapper Compatibility</title>
+  <meta name="description" content="Requirements and compatibility notes for using Essential Key Remapper on Nothing and CMF phones.">
+  <link rel="canonical" href="https://wreck2053.github.io/essential-key/compatibility/">
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+  <header class="site-header"><nav class="nav wrap"><a class="brand" href="../">Essential Key Remapper</a><div class="nav-links"><a href="../setup/">Setup</a><a href="../faq/">FAQ</a><a href="../download/">Download</a></div></nav></header>
+  <main>
+    <section class="page-hero wrap"><div class="eyebrow">Requirements</div><h1>Check your phone before installing.</h1><p class="lead">Compatibility depends on Android, Nothing OS package names, and whether the device exposes the Essential Key through hardware key events.</p></section>
+    <article class="content wrap">
+      <h2>Required</h2>
+      <ul class="checklist">
+        <li>Android 11 or later for embedded Wireless Debugging setup.</li>
+        <li>A Nothing or CMF device that includes the Essential Space handler packages.</li>
+        <li>Developer Options and temporary Wireless Debugging access during setup.</li>
+        <li>Permission to enable the app's hardware-button Accessibility service.</li>
+      </ul>
+      <h2>Current compatibility status</h2>
+      <div class="notice">There is not yet a formally verified per-model compatibility matrix. Treat support as experimental until your exact device and Nothing OS version have been confirmed.</div>
+      <div class="table-wrap"><table><thead><tr><th>Check</th><th>Expected result</th></tr></thead><tbody>
+        <tr><td>Essential Space packages detected</td><td>The Setup page offers the release operation.</td></tr>
+        <tr><td>Wireless Debugging pairing succeeds</td><td>The app reports that Nothing's handlers are disabled.</td></tr>
+        <tr><td>Button listener enabled</td><td>The app can detect a hardware key press.</td></tr>
+        <tr><td>Key detected</td><td>Single, double, and long presses can be configured.</td></tr>
+      </tbody></table></div>
+      <h2>Known limitations</h2>
+      <ul class="checklist">
+        <li>Nothing OS updates may change package names or hardware-key delivery.</li>
+        <li>Another Accessibility service requesting hardware key events may conflict.</li>
+        <li>Flashlight access can fail while the camera is using the flash.</li>
+        <li>Launching apps or URLs can be affected by Android background activity restrictions.</li>
+        <li>Silent-mode behavior may require Notification Policy access.</li>
+      </ul>
+      <p>Report confirmed device results through <a href="https://github.com/wreck2053/essential-key/issues">GitHub Issues</a>, including device model, Android version, Nothing OS version, and the setup step that succeeded or failed.</p>
+    </article>
+  </main>
+  <footer class="site-footer"><div class="footer-grid wrap"><span>Compatibility claims are intentionally conservative.</span><div class="footer-links"><a href="../setup/">Setup</a><a href="../download/">Download</a></div></div></footer>
+</body>
+</html>

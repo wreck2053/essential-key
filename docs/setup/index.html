@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Essential Key Remapper Setup Guide</title>
+  <meta name="description" content="Complete setup guide for remapping the Nothing or CMF Essential Key using local Wireless Debugging and the hardware button listener.">
+  <link rel="canonical" href="https://wreck2053.github.io/essential-key/setup/">
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+  <header class="site-header"><nav class="nav wrap"><a class="brand" href="../">Essential Key Remapper</a><div class="nav-links"><a href="../use-cases/">Use cases</a><a href="../faq/">FAQ</a><a href="../download/">Download</a></div></nav></header>
+  <main>
+    <section class="page-hero wrap"><div class="eyebrow">Installation guide</div><h1>Set up the Essential Key Remapper.</h1><p class="lead">The app explains every step, but this guide lets you review the process and its effects before installing.</p></section>
+    <article class="content wrap">
+      <div class="notice danger"><strong>Before uninstalling:</strong> restore Essential Space from the app's Setup page. Uninstalling the remapper alone does not restore ownership of the key.</div>
+      <h2>1. Enable Developer Options</h2>
+      <p>On Nothing OS, open <strong>About phone → Software info → Build number</strong>. Tap Build number seven times, confirm your screen lock if requested, and keep the main Developer Options switch enabled.</p>
+      <img src="../assets/setup-developer-options.png" alt="Essential Key Remapper Developer Options and Release Essential Key setup steps" width="722" height="1600">
+      <h2>2. Release the Essential Key</h2>
+      <p>Nothing OS normally routes the hardware key to Essential Space and Essential Recorder. The app opens Android's Wireless Debugging settings and pairs with the same phone over the local connection.</p>
+      <ol class="checklist">
+        <li>Tap <strong>Open Wireless debugging setup</strong>.</li>
+        <li>Enable Wireless Debugging and choose <strong>Pair device with pairing code</strong>.</li>
+        <li>Enter the six-digit pairing code through the app or its setup notification.</li>
+        <li>The app runs only the allowlisted package-state commands documented in the open-source repository.</li>
+      </ol>
+      <p>The app disables <code>com.nothing.ntessentialspace</code> and <code>com.nothing.ntessentialrecorder</code> for Android user 0. Their data is not deleted. The Restore action runs the corresponding enable commands.</p>
+      <h2>3. Enable the hardware-button listener</h2>
+      <p>Enable <strong>Essential Key button listener</strong> in Android Accessibility settings. The service requests hardware key events. It does not process accessibility screen content or type text.</p>
+      <p>Sideloaded APKs on Android 13 or later may require <strong>App info → ⋮ → Allow restricted settings</strong> after Android blocks the first enable attempt.</p>
+      <h2>4. Detect and configure the key</h2>
+      <p>Tap Detect, press the Essential Key once, then select separate actions for single, double, and long presses.</p>
+      <img src="../assets/setup-listener-detection.png" alt="Accessibility listener enabled and Essential Key detected" width="722" height="1600">
+      <div class="notice success">Wireless Debugging can be turned off after package setup is complete.</div>
+      <h2>Restoring the original behavior</h2>
+      <p>Open the app's Setup page and tap <strong>Restore Essential Space</strong>. Complete the local Wireless Debugging pairing again if Android requires it, then verify that Nothing's handlers are enabled before uninstalling.</p>
+      <div class="cta"><h3>Ready to continue?</h3><div class="actions"><a class="button" href="../download/">Download</a><a class="button secondary" href="../faq/">Read the FAQ</a></div></div>
+    </article>
+  </main>
+  <footer class="site-footer"><div class="footer-grid wrap"><span>Unofficial project · Not affiliated with Nothing Technology</span><div class="footer-links"><a href="../privacy/">Privacy</a><a href="https://github.com/wreck2053/essential-key">GitHub</a></div></div></footer>
+</body>
+</html>

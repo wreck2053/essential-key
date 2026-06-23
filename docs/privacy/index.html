@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Policy — Essential Key Remapper</title>
+  <meta name="description" content="Privacy policy describing local data storage, network requests, Accessibility usage, installed-app access, and diagnostics in Essential Key Remapper.">
+  <link rel="canonical" href="https://wreck2053.github.io/essential-key/privacy/">
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+  <header class="site-header"><nav class="nav wrap"><a class="brand" href="../">Essential Key Remapper</a><div class="nav-links"><a href="../faq/">FAQ</a><a href="../setup/">Setup</a><a href="../download/">Download</a></div></nav></header>
+  <main>
+    <section class="page-hero wrap"><div class="eyebrow">Privacy policy</div><h1>Your configuration stays on your device.</h1><p class="lead">Effective June 23, 2026. This policy describes the current open-source application.</p></section>
+    <article class="content wrap">
+      <h2>Summary</h2><p>Essential Key Remapper does not include advertising, analytics, crash-reporting SDKs, user accounts, or a developer-operated backend. The app stores configuration locally and communicates over the network only for user-configured actions and local Wireless Debugging setup.</p>
+      <h2>Data stored locally</h2>
+      <ul class="checklist">
+        <li>Selected hardware-key identifiers, including key code, scan code, input source, device descriptor, vendor ID, and product ID.</li>
+        <li>Configured gesture actions, URLs, app package names, labels, haptic strength, and recent action results.</li>
+        <li>An ADB identity used for local Wireless Debugging. Its exportable private key is encrypted at rest using a key held by Android Keystore.</li>
+        <li>Setup diagnostics such as timestamps, package-operation status, device model, Android version, and error details.</li>
+      </ul>
+      <p>This information is stored in the app's private storage and is not automatically sent to the developer.</p>
+      <h2>Accessibility service</h2><p>The Accessibility service requests hardware key events and can perform user-selected Android global actions. The implementation does not process AccessibilityEvent screen content, inspect text displayed by other apps, or type on the user's behalf.</p>
+      <h2>Installed apps</h2><p>When displaying the Launch App selector, the app queries launchable applications installed on the device and shows their labels, package names, and icons. This list is processed on-device and is not sent to the developer.</p>
+      <h2>Network communication</h2>
+      <ul class="checklist">
+        <li><strong>Wireless Debugging:</strong> local-device pairing and ADB communication used for the package setup explicitly initiated by the user.</li>
+        <li><strong>HTTP actions:</strong> GET or POST requests sent to URLs configured by the user. Those destinations have their own privacy and security practices.</li>
+        <li><strong>Open URL:</strong> URLs are handed to another installed Android app capable of opening them.</li>
+      </ul>
+      <h2>Permissions</h2><p>The app may request Internet access, notification access for pairing-code entry, vibration, audio-setting controls, Notification Policy access for silent-mode actions, flashlight hardware access, and the Accessibility service described above.</p>
+      <h2>Data deletion</h2><p>Clearing the app's storage or uninstalling deletes its private configuration, diagnostics, and ADB identity. Uninstalling does <strong>not</strong> re-enable the Nothing packages changed during setup; restore Essential Space before uninstalling.</p>
+      <h2>Children</h2><p>The app is a device customization utility and is not directed to children.</p>
+      <h2>Changes and contact</h2><p>Policy changes will be published on this page and in the source repository. Privacy questions can be filed through <a href="https://github.com/wreck2053/essential-key/issues">GitHub Issues</a> without including private credentials or logs.</p>
+    </article>
+  </main>
+  <footer class="site-footer"><div class="footer-grid wrap"><span>Privacy policy · June 23, 2026</span><a href="https://github.com/wreck2053/essential-key">View source</a></div></footer>
+</body>
+</html>

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Essential Key Remapper FAQ</title>
+  <meta name="description" content="Answers about safety, Wireless Debugging, Accessibility, uninstalling, privacy, updates, and payments for Essential Key Remapper.">
+  <link rel="canonical" href="https://wreck2053.github.io/essential-key/faq/">
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+  <header class="site-header"><nav class="nav wrap"><a class="brand" href="../">Essential Key Remapper</a><div class="nav-links"><a href="../setup/">Setup</a><a href="../privacy/">Privacy</a><a href="../download/">Download</a></div></nav></header>
+  <main>
+    <section class="page-hero wrap"><div class="eyebrow">FAQ</div><h1>Important questions before you install.</h1></section>
+    <article class="content wrap">
+      <h2>Is this an official Nothing app?</h2><p>No. Essential Key Remapper is an independent community project and is not affiliated with, endorsed by, or supported by Nothing Technology Limited.</p>
+      <h2>Why does setup use Wireless Debugging?</h2><p>Nothing OS normally consumes the Essential Key through Essential Space and Essential Recorder. The local Wireless Debugging connection lets the app change only those package states for the current Android user after you approve pairing.</p>
+      <h2>Does it require a computer?</h2><p>No. Pairing and package setup happen on the phone. Split-screen or the setup notification can be used to enter Android's six-digit pairing code.</p>
+      <h2>What does the Accessibility service do?</h2><p>It requests filtered hardware key events so the selected key can be recognized while other apps are open. The implementation does not process accessibility screen content or type text.</p>
+      <h2>What happens if I uninstall the app?</h2><p>The disabled Nothing packages remain disabled. Restore Essential Space from the Setup page before uninstalling.</p>
+      <h2>Can I reverse the setup?</h2><p>Yes. The Restore Essential Space action re-enables the two packages. You may need to repeat Wireless Debugging pairing.</p>
+      <h2>Where are settings stored?</h2><p>Gesture configuration, mapped hardware-key identifiers, and recent action results are stored locally in the app's private storage. The ADB identity is also stored locally with its private key encrypted at rest using Android Keystore.</p>
+      <h2>Does the app send analytics or personal data?</h2><p>The current code does not include advertising, analytics, crash-reporting, accounts, or a developer-operated data server. User-configured HTTP actions send requests to the destination entered by the user.</p>
+      <h2>How are updates installed?</h2><p>Download signed APK updates from the project's GitHub Releases page. Android will accept an update only when it uses the same application ID and signing key as the installed build.</p>
+      <h2>Where can I get support?</h2><p>Use <a href="https://github.com/wreck2053/essential-key/issues">GitHub Issues</a>. Do not post pairing codes, private URLs, access tokens, or complete diagnostic logs containing sensitive information.</p>
+    </article>
+  </main>
+  <footer class="site-footer"><div class="footer-grid wrap"><span>Essential Key Remapper FAQ</span><div class="footer-links"><a href="../privacy/">Privacy</a><a href="../compatibility/">Compatibility</a></div></div></footer>
+</body>
+</html>
