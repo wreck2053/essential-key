@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Remap the Essential Key Without a PC or Terminal</title>
+  <meta name="description" content="Remap the Nothing or CMF Essential Key without a computer. The app uses Android's local Wireless Debugging pairing flow on the phone.">
+  <link rel="canonical" href="https://wreck2053.github.io/essential-key/remap-essential-key-without-pc/">
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+  <header class="site-header"><nav class="nav wrap"><a class="brand" href="../">Essential Key Remapper</a><div class="nav-links"><a href="../setup/">Setup</a><a href="../faq/">FAQ</a><a href="../download/">Download</a></div></nav></header>
+  <main>
+    <section class="page-hero wrap"><div class="eyebrow">On-device setup</div><h1>Remap the Essential Key without a PC.</h1><p class="lead">No desktop ADB installation or terminal commands are required. Android still requires you to explicitly enable and approve Wireless Debugging.</p></section>
+    <article class="content wrap">
+      <h2>What “without a PC” means</h2><p>The app contains a local ADB client. It discovers Android's Wireless Debugging service on the phone, pairs using the six-digit code shown by Android, and connects back to the same device.</p>
+      <h2>What the app runs</h2><p>The setup implementation restricts shell execution to these package-state operations:</p>
+      <ul class="checklist">
+        <li><code>pm disable-user --user 0 com.nothing.ntessentialspace</code></li>
+        <li><code>pm disable-user --user 0 com.nothing.ntessentialrecorder</code></li>
+        <li>The corresponding <code>pm enable --user 0</code> commands during restoration.</li>
+      </ul>
+      <p>The packages and their data are not deleted.</p>
+      <img src="../assets/setup-developer-options.png" alt="On-device Essential Key setup using Android Developer Options and Wireless Debugging" width="722" height="1600">
+      <h2>Android confirmations cannot be bypassed</h2><p>You must reveal Developer Options, enable Wireless Debugging, open Android's pairing dialog, and supply the pairing code. Wireless Debugging can be disabled after setup.</p>
+      <div class="notice danger">If you uninstall without restoring Essential Space, the original Nothing handlers remain disabled. Restore first.</div>
+      <div class="cta"><h3>Continue with the complete walkthrough</h3><div class="actions"><a class="button" href="../setup/">Setup guide</a><a class="button secondary" href="../compatibility/">Compatibility</a></div></div>
+    </article>
+  </main>
+  <footer class="site-footer"><div class="footer-grid wrap"><span>Transparent, allowlisted local setup</span><a href="https://github.com/wreck2053/essential-key">Inspect the source</a></div></footer>
+</body>
+</html>

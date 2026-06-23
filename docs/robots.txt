@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://wreck2053.github.io/essential-key/sitemap.xml

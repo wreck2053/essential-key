@@ -1,0 +1,4 @@
+Shared navigation labels:
+Home · Setup · Use cases · Compatibility · FAQ · Download
+
+This file documents the hand-authored navigation shared by the static pages.

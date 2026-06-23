@@ -2,6 +2,14 @@
 
 An Android app for remapping the Nothing/CMF Essential Key. It detects the key through an Accessibility Service and assigns separate actions to single, double, and long presses.
 
+**Website:** https://wreck2053.github.io/essential-key/
+
+**Setup guide:** https://wreck2053.github.io/essential-key/setup/
+
+**Downloads:** https://github.com/wreck2053/essential-key/releases
+
+> Unofficial community project. Not affiliated with or endorsed by Nothing Technology Limited.
+
 ## Actions
 
 - HTTP GET or POST with a separate base URL for each press gesture
