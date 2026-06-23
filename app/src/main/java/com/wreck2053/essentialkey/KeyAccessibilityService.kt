@@ -8,7 +8,6 @@ import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import com.wreck2053.essentialkey.data.SettingsRepository
 import com.wreck2053.essentialkey.domain.AppSettings
-import com.wreck2053.essentialkey.domain.ActionUrlResolver
 import com.wreck2053.essentialkey.domain.KeyIdentity
 import com.wreck2053.essentialkey.domain.PressAction
 import com.wreck2053.essentialkey.haptics.HapticEngine
@@ -19,20 +18,20 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class KeyAccessibilityService : AccessibilityService() {
     private lateinit var repository: SettingsRepository
     private lateinit var hapticEngine: HapticEngine
     private lateinit var classifier: GestureClassifier
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val requestExecutor = HttpRequestExecutor()
+    private lateinit var actionExecutor: ActionExecutor
     @Volatile private var currentSettings = AppSettings()
 
     override fun onServiceConnected() {
         val container = (application as EssentialKeyApplication).container
         repository = container.repository
         hapticEngine = container.hapticEngine
+        actionExecutor = ActionExecutor(this, container.torchController)
         serviceInfo = serviceInfo.apply {
             flags = flags or AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
         }
@@ -83,23 +82,13 @@ class KeyAccessibilityService : AccessibilityService() {
     private fun executeAction(action: PressAction) {
         val config = currentSettings.actions.getValue(action)
         hapticEngine.perform(currentSettings.hapticStrength)
-        if (config.url.isBlank()) {
-            serviceScope.launch {
-                repository.saveResult(action, "${Instant.now()} — HTTP disabled")
-            }
-            return
-        }
-        val resolvedConfig = config.copy(
-            url = ActionUrlResolver.resolve(currentSettings.baseUrl, config.url),
-        )
         serviceScope.launch {
-            val result = withContext(Dispatchers.IO) { requestExecutor.execute(resolvedConfig) }
-            val status = if (result.statusCode >= 0) {
-                "HTTP ${result.statusCode} ${result.message}".trim()
-            } else {
-                "Error: ${result.message}"
-            }
-            repository.saveResult(action, "${Instant.now()} — $status")
+            val result = actionExecutor.execute(
+                action = config,
+                performGlobalAction = ::performGlobalAction,
+            )
+            val prefix = if (result.successful) "Done" else "Error"
+            repository.saveResult(action, "${Instant.now()} — $prefix: ${result.message}")
         }
     }
 

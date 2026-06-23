@@ -1,37 +1,64 @@
-# Essential Key HTTP Mapper
+# Essential Key Remapper
 
-A Material 3 Android app that maps one observable hardware key to local HTTP requests and haptic feedback for single, double, and long presses. It is designed for the Nothing Phone (3a) Essential Key, which may appear to Android as `KEYCODE_UNKNOWN` (`keyCode=0`).
+An Android app for remapping the Nothing/CMF Essential Key. It detects the key through an Accessibility Service and assigns separate actions to single, double, and long presses.
 
-## Install without Android build tools
+## Actions
 
-1. Open the latest successful **Android build** run on this repository's Actions page.
-2. Download the `essential-key-debug-apk` artifact.
-3. Unzip it and transfer `app-debug.apk` to the phone.
-4. Allow installation from the browser or file manager when Android prompts, then install the APK.
+- HTTP GET or POST with a separate base URL for each press gesture
+- Toggle flashlight
+- Set normal, vibrate, silent, or toggle silent/normal
+- Launch an installed app
+- Open a URL
+- Screenshot
+- Lock screen
+- Power menu
+- Play/pause, next, or previous media
+- Open camera or assistant
+- Notifications
+- Quick Settings
+- Home, Back, or Recents
+- Haptic-only/no action
 
-All compilation happens in GitHub Actions. Editing and pushing source files locally does not require Android Studio, Java, Gradle, or the Android SDK.
+## Setup
 
-## Configure
+### 1. Enable Developer options
 
-1. In the setup panel, tap **Open Accessibility** and try to enable **Essential Key button listener**.
-2. If Android blocks it, return to the app and tap **Open App info**. Open the top-right three-dot menu and tap **Allow restricted settings**. This Android 13+ step is required for APKs installed outside Google Play; signing the APK does not bypass it.
-3. Return to **Open Accessibility** and enable the listener. The app never advances setup from a tap; the panel turns green only after Android reports that the service is enabled.
-4. Tap **Detect hardware button** and press the Essential Key once.
-5. Set the controller base URL and edit the GET/POST path for each gesture. A complete URL can be used instead of a path.
-6. Choose the shared haptic strength, preview it if needed, then tap **Save actions**. Leaving a path blank creates a haptic-only action.
+Open **About phone → Software info → Build number**, tap Build number seven times, then keep the main Developer options switch enabled.
 
-Defaults target [`wreck2053/home-automation`](https://github.com/wreck2053/home-automation):
+### 2. Release the Essential Key
 
-- Controller: `http://192.168.0.108`
-- Single press: `GET /toggle-light`
-- Double press: `GET /preset-ac`
-- Long press: `GET /toggle-fan`
+Nothing OS normally consumes the key through Essential Space and Essential Recorder. The app includes a local Wireless ADB setup flow that disables these handlers for the current Android user.
 
-Button detection is intentionally disabled until Android reports that the Accessibility Service is enabled. If the **Allow restricted settings** menu item is not visible, first try enabling the service once, accept the denial, and return to App info.
+1. Tap **Open Wireless debugging setup**.
+2. Confirm the package change.
+3. Enable **Wireless debugging** if needed.
+4. Tap **Pair device with pairing code**.
+5. Enter the six-digit code using the Essential Key setup notification.
 
-POST sends an empty request body. The app shows the latest HTTP status or error below each action. Requests use a 5-second connection timeout and 10-second read timeout. Light, Medium, and Strong haptics use progressively longer and higher-amplitude pulses, with duration-based fallback on devices without amplitude control. Haptics respect the system touch-feedback setting.
+The app executes only these allowlisted operations:
 
-The interface uses dynamic Material You color on Android 12+, supports light/dark mode, and adapts from compact phones to landscape and tablet windows.
+```text
+pm disable-user --user 0 com.nothing.ntessentialspace
+pm disable-user --user 0 com.nothing.ntessentialrecorder
+```
+
+The packages and their data are not deleted. **Restore Essential Space** reverses the change with `pm enable`.
+
+Uninstalling the remapper does not restore the Essential Key. Restore Essential Space from the Setup page before uninstalling.
+
+Android requires Developer Options, Wireless Debugging, and pairing approval. The app cannot bypass those system confirmations. Wireless Debugging can be turned off after setup.
+
+### 3. Enable the button listener
+
+The Accessibility Service receives and consumes only hardware `KeyEvent` objects. It does not inspect screen content, type text, or collect accessibility data.
+
+Sideloaded APKs on Android 13+ may require **App info → ⋮ → Allow restricted settings** before the service can be enabled.
+
+### 4. Detect and configure
+
+Detect the Essential Key once, choose one action for each gesture, select haptic strength, and save.
+
+Normal and vibrate modes use standard audio controls. On Nothing OS, changes involving silent mode may require Notification Policy access.
 
 ## Gesture timing
 
@@ -39,21 +66,26 @@ The interface uses dynamic Material You color on Android 12+, supports light/dar
 - Double press: two short presses within that window.
 - Long press: fires after holding for 600 ms.
 
-## Android and Nothing OS limitations
+## Compatibility and limitations
 
-The Accessibility Service asks Android to filter global hardware key events and consumes both down and up events for the mapped key. Android does not expose every physical button: Power, Home, and some OEM-reserved events may be unavailable. Nothing OS may also run Essential Space through an OEM path even when the accessibility event is consumed. Behavior can change with Nothing OS updates.
+- Embedded Wireless ADB setup requires Android 11 or newer.
+- The app targets Nothing/CMF devices containing the Essential Space packages.
+- Android or Nothing OS updates may change package names, key delivery, background activity behavior, or Wireless Debugging behavior.
+- Flashlight access can fail while the camera is in use.
+- Launch-app and open-URL actions remain subject to Android background activity restrictions.
+- Google Play distribution requires an Accessibility Service declaration and prominent disclosure. Automatic package changes may also receive policy review.
 
-The service's accessibility-event callback intentionally does nothing; it observes only hardware `KeyEvent` objects. Cleartext HTTP is enabled because local-network devices commonly do not provide TLS.
-
-## Development
-
-GitHub Actions runs:
+## Build
 
 ```text
 ./gradlew testDebugUnitTest lintDebug assembleDebug
 ```
 
-The workflow then uploads `app/build/outputs/apk/debug/app-debug.apk` as `essential-key-debug-apk`.
+The debug APK is written to:
+
+```text
+app/build/outputs/apk/debug/app-debug.apk
+```
 
 ## License
 
