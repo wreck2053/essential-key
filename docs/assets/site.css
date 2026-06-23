@@ -99,6 +99,16 @@ h3 { margin: 0 0 10px; font-size: 1.25rem; }
   box-shadow: 0 34px 90px #0009;
 }
 .phone img { display: block; width: 100%; }
+.phone-preview {
+  width: min(100%, 320px);
+  height: 620px;
+}
+.phone-preview img {
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+.phone-preview-setup { height: 540px; }
 .section { padding: 72px 0; }
 .section.alt { border-block: 1px solid var(--line); background: #111116; }
 .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
@@ -157,7 +167,9 @@ code {
   .nav-links .hide-mobile { display: none; }
   .hero-grid, .grid, .grid.two, .screenshot-row { grid-template-columns: 1fr; }
   .hero { padding-top: 54px; }
-  .phone { width: min(88vw, 340px); }
+  .phone { width: min(82vw, 300px); }
+  .phone-preview,
+  .phone-preview-setup { height: 440px; }
   .section { padding: 56px 0; }
   .cta { padding: 26px; }
 }
