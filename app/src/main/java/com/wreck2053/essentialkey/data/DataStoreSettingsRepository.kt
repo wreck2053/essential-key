@@ -9,12 +9,15 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.wreck2053.essentialkey.domain.ActionSettings
+import com.wreck2053.essentialkey.domain.ActionKind
 import com.wreck2053.essentialkey.domain.AppSettings
+import com.wreck2053.essentialkey.domain.ConfiguredAction
 import com.wreck2053.essentialkey.domain.HapticStrength
 import com.wreck2053.essentialkey.domain.KeyIdentity
 import com.wreck2053.essentialkey.domain.PressAction
 import com.wreck2053.essentialkey.domain.RequestMethod
+import com.wreck2053.essentialkey.domain.SoundMode
+import com.wreck2053.essentialkey.domain.SystemAction
 import java.io.IOException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -38,17 +41,13 @@ class DataStoreSettingsRepository(context: Context) : SettingsRepository {
         .map(::preferencesToSettings)
 
     override suspend fun saveConfiguration(
-        baseUrl: String,
         hapticStrength: HapticStrength,
-        actions: Map<PressAction, ActionSettings>,
+        actions: Map<PressAction, ConfiguredAction>,
     ) {
         dataStore.edit { preferences ->
-            preferences[Keys.BASE_URL] = baseUrl.trim().trimEnd('/')
             preferences[Keys.COMMON_HAPTIC] = hapticStrength.name
             PressAction.entries.forEach { action ->
-                val config = actions.getValue(action)
-                preferences[Keys.method(action)] = config.method.name
-                preferences[Keys.url(action)] = config.url.trim()
+                writeAction(preferences, action, actions.getValue(action))
             }
         }
     }
@@ -74,7 +73,43 @@ class DataStoreSettingsRepository(context: Context) : SettingsRepository {
     override suspend fun saveResult(action: PressAction, result: String) {
         dataStore.edit { it[Keys.result(action)] = result }
     }
+}
 
+private fun writeAction(
+    preferences: androidx.datastore.preferences.core.MutablePreferences,
+    gesture: PressAction,
+    action: ConfiguredAction,
+) {
+    preferences[Keys.actionType(gesture)] = action.kind.name
+    preferences.remove(Keys.actionValue(gesture))
+    preferences.remove(Keys.actionLabel(gesture))
+    preferences.remove(Keys.method(gesture))
+    preferences.remove(Keys.url(gesture))
+    preferences.remove(Keys.actionBaseUrl(gesture))
+    when (action) {
+        ConfiguredAction.None,
+        ConfiguredAction.Flashlight,
+        ConfiguredAction.ToggleSilent,
+        -> Unit
+        is ConfiguredAction.Http -> {
+            preferences[Keys.actionBaseUrl(gesture)] = action.baseUrl.trim().trimEnd('/')
+            preferences[Keys.method(gesture)] = action.method.name
+            preferences[Keys.actionValue(gesture)] = action.endpoint.trim()
+        }
+        is ConfiguredAction.LaunchApp -> {
+            preferences[Keys.actionValue(gesture)] = action.packageName
+            preferences[Keys.actionLabel(gesture)] = action.label
+        }
+        is ConfiguredAction.OpenUrl -> {
+            preferences[Keys.actionValue(gesture)] = action.url.trim()
+        }
+        is ConfiguredAction.PerformSystemAction -> {
+            preferences[Keys.actionValue(gesture)] = action.action.name
+        }
+        is ConfiguredAction.SetSoundMode -> {
+            preferences[Keys.actionValue(gesture)] = action.mode.name
+        }
+    }
 }
 
 internal fun preferencesToSettings(preferences: Preferences): AppSettings {
@@ -92,11 +127,8 @@ internal fun preferencesToSettings(preferences: Preferences): AppSettings {
         null
     }
     val defaults = AppSettings.defaultActions()
-    val actions = PressAction.entries.associateWith { action ->
-        ActionSettings(
-            method = preferences[Keys.method(action)].toEnumOrDefault(RequestMethod.GET),
-            url = preferences[Keys.url(action)] ?: defaults.getValue(action).url,
-        )
+    val actions = PressAction.entries.associateWith { gesture ->
+        readAction(preferences, gesture, defaults.getValue(gesture))
     }
     val results = PressAction.entries.associateWith { preferences[Keys.result(it)] }
     val commonHaptic = (
@@ -104,12 +136,54 @@ internal fun preferencesToSettings(preferences: Preferences): AppSettings {
         ).toEnumOrDefault(HapticStrength.MEDIUM)
     return AppSettings(
         mappedKey = mappedKey,
-        baseUrl = preferences[Keys.BASE_URL] ?: AppSettings.DEFAULT_BASE_URL,
         hapticStrength = commonHaptic,
         actions = actions,
         results = results,
         learning = preferences[Keys.LEARNING] ?: false,
     )
+}
+
+private fun readAction(
+    preferences: Preferences,
+    gesture: PressAction,
+    default: ConfiguredAction,
+): ConfiguredAction {
+    val defaultHttp = default as? ConfiguredAction.Http
+    val baseUrl = preferences[Keys.actionBaseUrl(gesture)]
+        ?: preferences[Keys.BASE_URL]
+        ?: defaultHttp?.baseUrl
+        ?: ConfiguredAction.Http.DEFAULT_BASE_URL
+    val storedType = preferences[Keys.actionType(gesture)]
+    if (storedType == null) {
+        val legacyUrl = preferences[Keys.url(gesture)]
+            ?: defaultHttp?.endpoint
+            ?: ""
+        return ConfiguredAction.Http(
+            baseUrl = baseUrl,
+            method = preferences[Keys.method(gesture)].toEnumOrDefault(RequestMethod.GET),
+            endpoint = legacyUrl,
+        )
+    }
+    val value = preferences[Keys.actionValue(gesture)].orEmpty()
+    return when (storedType.toEnumOrDefault(ActionKind.NONE)) {
+        ActionKind.NONE -> ConfiguredAction.None
+        ActionKind.HTTP -> ConfiguredAction.Http(
+            baseUrl = baseUrl,
+            method = preferences[Keys.method(gesture)].toEnumOrDefault(RequestMethod.GET),
+            endpoint = value,
+        )
+        ActionKind.FLASHLIGHT -> ConfiguredAction.Flashlight
+        ActionKind.SOUND_MODE -> ConfiguredAction.SetSoundMode(value.toEnumOrDefault(SoundMode.SILENT))
+        ActionKind.TOGGLE_SILENT -> ConfiguredAction.SetSoundMode(SoundMode.TOGGLE_SILENT_NORMAL)
+        ActionKind.LAUNCH_APP -> ConfiguredAction.LaunchApp(
+            packageName = value,
+            label = preferences[Keys.actionLabel(gesture)].orEmpty(),
+        )
+        ActionKind.OPEN_URL -> ConfiguredAction.OpenUrl(value)
+        ActionKind.SYSTEM -> ConfiguredAction.PerformSystemAction(
+            value.toEnumOrDefault(SystemAction.SCREENSHOT),
+        )
+    }
 }
 
 private object Keys {
@@ -125,6 +199,10 @@ private object Keys {
     val DESCRIPTOR = stringPreferencesKey("descriptor")
     val VENDOR_ID = intPreferencesKey("vendor_id")
     val PRODUCT_ID = intPreferencesKey("product_id")
+    fun actionType(action: PressAction) = stringPreferencesKey("${action.name}_action_type")
+    fun actionValue(action: PressAction) = stringPreferencesKey("${action.name}_action_value")
+    fun actionLabel(action: PressAction) = stringPreferencesKey("${action.name}_action_label")
+    fun actionBaseUrl(action: PressAction) = stringPreferencesKey("${action.name}_http_base_url")
     fun method(action: PressAction) = stringPreferencesKey("${action.name}_method")
     fun url(action: PressAction) = stringPreferencesKey("${action.name}_url")
     fun haptic(action: PressAction) = stringPreferencesKey("${action.name}_haptic")

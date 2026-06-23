@@ -4,14 +4,24 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.wreck2053.essentialkey.data.SettingsRepository
-import com.wreck2053.essentialkey.domain.ActionSettings
+import com.wreck2053.essentialkey.domain.ActionKind
 import com.wreck2053.essentialkey.domain.AppSettings
+import com.wreck2053.essentialkey.domain.ConfiguredAction
 import com.wreck2053.essentialkey.domain.HapticStrength
 import com.wreck2053.essentialkey.domain.PressAction
 import com.wreck2053.essentialkey.domain.RequestMethod
+import com.wreck2053.essentialkey.domain.SoundMode
+import com.wreck2053.essentialkey.domain.SystemAction
 import com.wreck2053.essentialkey.haptics.HapticEngine
 import com.wreck2053.essentialkey.haptics.HapticResult
 import com.wreck2053.essentialkey.platform.AccessibilityStatus
+import com.wreck2053.essentialkey.platform.LaunchableApp
+import com.wreck2053.essentialkey.platform.LaunchableAppsReader
+import com.wreck2053.essentialkey.setup.EssentialKeySetupController
+import com.wreck2053.essentialkey.setup.EssentialKeySetupCoordinator
+import com.wreck2053.essentialkey.setup.EssentialKeySetupState
+import com.wreck2053.essentialkey.setup.NothingPackageStatus
+import com.wreck2053.essentialkey.setup.PackageOperation
 import java.net.URI
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,39 +34,37 @@ import kotlinx.coroutines.launch
 
 data class MapperUiState(
     val settings: AppSettings = AppSettings(),
-    val draftBaseUrl: String = AppSettings.DEFAULT_BASE_URL,
     val draftHapticStrength: HapticStrength = HapticStrength.MEDIUM,
-    val draftActions: Map<PressAction, ActionSettings> = AppSettings.defaultActions(),
+    val draftActions: Map<PressAction, ConfiguredAction> = AppSettings.defaultActions(),
     val serviceEnabled: Boolean = false,
     val competingServices: List<String> = emptyList(),
-    val baseUrlError: String? = null,
+    val setup: EssentialKeySetupState = EssentialKeySetupState(),
+    val launchableApps: List<LaunchableApp> = emptyList(),
+    val notificationPolicyAccess: Boolean = false,
+    val developerOptionsEnabled: Boolean = false,
+    val baseUrlErrors: Map<PressAction, String> = emptyMap(),
     val validationErrors: Map<PressAction, String> = emptyMap(),
     val initialized: Boolean = false,
     val saving: Boolean = false,
 ) {
     val dirty: Boolean get() =
-        draftBaseUrl != settings.baseUrl ||
-            draftHapticStrength != settings.hapticStrength ||
+        draftHapticStrength != settings.hapticStrength ||
             draftActions != settings.actions
 
-    val setupStatus: SetupStatus get() = when {
-        competingServices.isNotEmpty() -> SetupStatus.CONFLICT
-        serviceEnabled -> SetupStatus.READY
-        else -> SetupStatus.REQUIRED
-    }
-}
-
-enum class SetupStatus {
-    REQUIRED,
-    CONFLICT,
-    READY,
+    val keyReleased: Boolean get() = setup.packageStatus == NothingPackageStatus.DISABLED
+    val readyToMap: Boolean get() =
+        keyReleased && serviceEnabled && competingServices.isEmpty()
 }
 
 class MapperViewModel(
     private val repository: SettingsRepository,
     private val hapticEngine: HapticEngine,
+    private val setupCoordinator: EssentialKeySetupController,
+    launchableApps: List<LaunchableApp> = emptyList(),
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(MapperUiState())
+    private val _uiState = MutableStateFlow(
+        MapperUiState(launchableApps = launchableApps),
+    )
     val uiState: StateFlow<MapperUiState> = _uiState.asStateFlow()
 
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 4)
@@ -66,21 +74,27 @@ class MapperViewModel(
         viewModelScope.launch {
             repository.settings.collect { settings ->
                 _uiState.update { current ->
-                    val draft = if (!current.initialized || !current.dirty) {
-                        settings.actions
-                    } else {
-                        current.draftActions
-                    }
+                    val preserveDraft = current.initialized && current.dirty
                     current.copy(
                         settings = settings,
-                        draftBaseUrl = if (!current.initialized || !current.dirty) settings.baseUrl else current.draftBaseUrl,
-                        draftHapticStrength = if (!current.initialized || !current.dirty) settings.hapticStrength else current.draftHapticStrength,
-                        draftActions = draft,
+                        draftHapticStrength = if (preserveDraft) current.draftHapticStrength else settings.hapticStrength,
+                        draftActions = if (preserveDraft) current.draftActions else settings.actions,
                         initialized = true,
                     )
                 }
             }
         }
+        viewModelScope.launch {
+            setupCoordinator.state.collect { setup ->
+                _uiState.update { it.copy(setup = setup) }
+            }
+        }
+    }
+
+    fun refreshSetup() = setupCoordinator.refresh()
+
+    fun showMessage(message: String) {
+        _messages.tryEmit(message)
     }
 
     fun updateAccessibilityStatus(status: AccessibilityStatus) {
@@ -93,17 +107,76 @@ class MapperViewModel(
         if (!status.serviceEnabled && _uiState.value.settings.learning) cancelLearning()
     }
 
-    fun updateMethod(action: PressAction, method: RequestMethod) = updateAction(action) {
-        copy(method = method)
+    fun updateNotificationPolicyAccess(granted: Boolean) {
+        _uiState.update { it.copy(notificationPolicyAccess = granted) }
     }
 
-    fun updateUrl(action: PressAction, url: String) {
-        updateAction(action) { copy(url = url) }
-        _uiState.update { it.copy(validationErrors = it.validationErrors - action) }
+    fun updateDeveloperOptionsStatus(enabled: Boolean) {
+        _uiState.update { it.copy(developerOptionsEnabled = enabled) }
     }
 
-    fun updateBaseUrl(baseUrl: String) {
-        _uiState.update { it.copy(draftBaseUrl = baseUrl, baseUrlError = null) }
+    fun startPackageSetup(operation: PackageOperation) {
+        setupCoordinator.start(operation)
+    }
+
+    fun submitPairingCode(code: String) = setupCoordinator.submitPairingCode(code)
+
+    fun cancelPackageSetup() = setupCoordinator.cancel()
+
+    fun diagnosticReport(): String = setupCoordinator.diagnosticReport()
+
+    fun clearDiagnostics() = setupCoordinator.clearDiagnostics()
+
+    fun updateActionKind(gesture: PressAction, kind: ActionKind) {
+        val current = _uiState.value.draftActions.getValue(gesture)
+        val replacement: ConfiguredAction = when (kind) {
+            ActionKind.NONE -> ConfiguredAction.None
+            ActionKind.HTTP -> current as? ConfiguredAction.Http ?: ConfiguredAction.Http()
+            ActionKind.FLASHLIGHT -> ConfiguredAction.Flashlight
+            ActionKind.SOUND_MODE -> current as? ConfiguredAction.SetSoundMode
+                ?: ConfiguredAction.SetSoundMode()
+            ActionKind.TOGGLE_SILENT ->
+                ConfiguredAction.SetSoundMode(SoundMode.TOGGLE_SILENT_NORMAL)
+            ActionKind.LAUNCH_APP -> current as? ConfiguredAction.LaunchApp
+                ?: _uiState.value.launchableApps.firstOrNull()?.let {
+                    ConfiguredAction.LaunchApp(it.packageName, it.label)
+                }
+                ?: ConfiguredAction.LaunchApp()
+            ActionKind.OPEN_URL -> current as? ConfiguredAction.OpenUrl ?: ConfiguredAction.OpenUrl()
+            ActionKind.SYSTEM -> current as? ConfiguredAction.PerformSystemAction
+                ?: ConfiguredAction.PerformSystemAction()
+        }
+        updateAction(gesture, replacement)
+    }
+
+    fun updateHttpMethod(gesture: PressAction, method: RequestMethod) {
+        val current = _uiState.value.draftActions[gesture] as? ConfiguredAction.Http ?: return
+        updateAction(gesture, current.copy(method = method))
+    }
+
+    fun updateHttpBaseUrl(gesture: PressAction, baseUrl: String) {
+        val current = _uiState.value.draftActions[gesture] as? ConfiguredAction.Http ?: return
+        updateAction(gesture, current.copy(baseUrl = baseUrl))
+    }
+
+    fun updateActionValue(gesture: PressAction, value: String) {
+        when (val current = _uiState.value.draftActions.getValue(gesture)) {
+            is ConfiguredAction.Http -> updateAction(gesture, current.copy(endpoint = value))
+            is ConfiguredAction.OpenUrl -> updateAction(gesture, current.copy(url = value))
+            else -> Unit
+        }
+    }
+
+    fun updateSoundMode(gesture: PressAction, mode: SoundMode) {
+        updateAction(gesture, ConfiguredAction.SetSoundMode(mode))
+    }
+
+    fun updateSystemAction(gesture: PressAction, action: SystemAction) {
+        updateAction(gesture, ConfiguredAction.PerformSystemAction(action))
+    }
+
+    fun updateLaunchApp(gesture: PressAction, app: LaunchableApp) {
+        updateAction(gesture, ConfiguredAction.LaunchApp(app.packageName, app.label))
     }
 
     fun updateHaptic(strength: HapticStrength) {
@@ -111,23 +184,32 @@ class MapperViewModel(
     }
 
     fun save() {
-        val actions = _uiState.value.draftActions
-        val baseUrlError = validateBaseUrl(_uiState.value.draftBaseUrl)
-        val errors = actions.mapNotNull { (action, config) ->
-            validateEndpoint(config.url)?.let { action to it }
+        val state = _uiState.value
+        val baseUrlErrors = state.draftActions.mapNotNull { (gesture, action) ->
+            (action as? ConfiguredAction.Http)?.let { http ->
+                validateBaseUrl(http.baseUrl)?.let { gesture to it }
+            }
         }.toMap()
-        if (baseUrlError != null || errors.isNotEmpty()) {
-            _uiState.update { it.copy(baseUrlError = baseUrlError, validationErrors = errors) }
-            _messages.tryEmit(baseUrlError ?: "Fix the highlighted paths before saving")
+        val errors = state.draftActions.mapNotNull { (gesture, action) ->
+            validateAction(action)?.let { gesture to it }
+        }.toMap()
+        if (baseUrlErrors.isNotEmpty() || errors.isNotEmpty()) {
+            _uiState.update { it.copy(baseUrlErrors = baseUrlErrors, validationErrors = errors) }
+            _messages.tryEmit("Fix the highlighted actions before saving")
             return
         }
         viewModelScope.launch {
-            _uiState.update { it.copy(saving = true, baseUrlError = null, validationErrors = emptyMap()) }
+            _uiState.update {
+                it.copy(
+                    saving = true,
+                    baseUrlErrors = emptyMap(),
+                    validationErrors = emptyMap(),
+                )
+            }
             runCatching {
                 repository.saveConfiguration(
-                    baseUrl = _uiState.value.draftBaseUrl,
                     hapticStrength = _uiState.value.draftHapticStrength,
-                    actions = actions,
+                    actions = _uiState.value.draftActions,
                 )
             }
                 .onSuccess { _messages.emit("Actions saved") }
@@ -137,6 +219,10 @@ class MapperViewModel(
     }
 
     fun startLearning() {
+        if (!_uiState.value.keyReleased) {
+            _messages.tryEmit("Release the Essential Key first")
+            return
+        }
         if (!_uiState.value.serviceEnabled) {
             _messages.tryEmit("Enable the accessibility service first")
             return
@@ -162,23 +248,35 @@ class MapperViewModel(
     private fun HapticStrength.displayName(): String =
         name.lowercase().replaceFirstChar(Char::uppercase)
 
-    private fun updateAction(action: PressAction, transform: ActionSettings.() -> ActionSettings) {
+    private fun updateAction(gesture: PressAction, action: ConfiguredAction) {
         _uiState.update { current ->
             current.copy(
-                draftActions = current.draftActions.toMutableMap().apply {
-                    this[action] = getValue(action).transform()
-                },
+                draftActions = current.draftActions + (gesture to action),
+                baseUrlErrors = current.baseUrlErrors - gesture,
+                validationErrors = current.validationErrors - gesture,
             )
         }
     }
 
     internal fun validateBaseUrl(value: String): String? {
-        if (value.isBlank()) return "Enter the controller base URL"
+        if (value.isBlank()) return "Enter the HTTP base URL"
         return validateAbsoluteUrl(value)
     }
 
+    internal fun validateAction(action: ConfiguredAction): String? = when (action) {
+        ConfiguredAction.None,
+        ConfiguredAction.Flashlight,
+        ConfiguredAction.ToggleSilent,
+        is ConfiguredAction.SetSoundMode,
+        is ConfiguredAction.PerformSystemAction,
+        -> null
+        is ConfiguredAction.Http -> validateEndpoint(action.endpoint)
+        is ConfiguredAction.LaunchApp -> if (action.packageName.isBlank()) "Choose an app" else null
+        is ConfiguredAction.OpenUrl -> validateAbsoluteUrl(action.url)
+    }
+
     internal fun validateEndpoint(value: String): String? {
-        if (value.isBlank()) return null
+        if (value.isBlank()) return "Enter a path or complete URL"
         if (value.startsWith("/")) return null
         if (!value.startsWith("http://") && !value.startsWith("https://")) {
             return "Start paths with / or enter a complete URL"
@@ -187,6 +285,7 @@ class MapperViewModel(
     }
 
     private fun validateAbsoluteUrl(value: String): String? {
+        if (value.isBlank()) return "Enter a complete URL"
         return try {
             val uri = URI(value.trim())
             if (uri.scheme !in setOf("http", "https") || uri.host.isNullOrBlank()) {
@@ -202,9 +301,16 @@ class MapperViewModel(
     class Factory(
         private val repository: SettingsRepository,
         private val hapticEngine: HapticEngine,
+        private val setupCoordinator: EssentialKeySetupCoordinator,
+        private val launchableAppsReader: LaunchableAppsReader,
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            MapperViewModel(repository, hapticEngine) as T
+            MapperViewModel(
+                repository,
+                hapticEngine,
+                setupCoordinator,
+                launchableAppsReader.read(),
+            ) as T
     }
 }

@@ -18,7 +18,90 @@ enum class HapticStrength {
     STRONG,
 }
 
-data class ActionSettings(
+enum class SoundMode {
+    NORMAL,
+    VIBRATE,
+    SILENT,
+    TOGGLE_SILENT_NORMAL,
+}
+
+enum class SystemAction {
+    SCREENSHOT,
+    LOCK_SCREEN,
+    POWER_MENU,
+    NOTIFICATIONS,
+    QUICK_SETTINGS,
+    HOME,
+    BACK,
+    RECENTS,
+    MEDIA_PLAY_PAUSE,
+    MEDIA_NEXT,
+    MEDIA_PREVIOUS,
+    CAMERA,
+    ASSISTANT,
+}
+
+enum class ActionKind {
+    NONE,
+    HTTP,
+    FLASHLIGHT,
+    SOUND_MODE,
+    TOGGLE_SILENT,
+    LAUNCH_APP,
+    OPEN_URL,
+    SYSTEM,
+}
+
+sealed interface ConfiguredAction {
+    val kind: ActionKind
+
+    data object None : ConfiguredAction {
+        override val kind = ActionKind.NONE
+    }
+
+    data class Http(
+        val baseUrl: String = DEFAULT_BASE_URL,
+        val method: RequestMethod = RequestMethod.GET,
+        val endpoint: String = "",
+    ) : ConfiguredAction {
+        override val kind = ActionKind.HTTP
+
+        companion object {
+            const val DEFAULT_BASE_URL = "http://192.168.0.108"
+        }
+    }
+
+    data object Flashlight : ConfiguredAction {
+        override val kind = ActionKind.FLASHLIGHT
+    }
+
+    data class SetSoundMode(val mode: SoundMode = SoundMode.SILENT) : ConfiguredAction {
+        override val kind = ActionKind.SOUND_MODE
+    }
+
+    data object ToggleSilent : ConfiguredAction {
+        override val kind = ActionKind.TOGGLE_SILENT
+    }
+
+    data class LaunchApp(
+        val packageName: String = "",
+        val label: String = "",
+    ) : ConfiguredAction {
+        override val kind = ActionKind.LAUNCH_APP
+    }
+
+    data class OpenUrl(val url: String = "") : ConfiguredAction {
+        override val kind = ActionKind.OPEN_URL
+    }
+
+    data class PerformSystemAction(
+        val action: SystemAction = SystemAction.SCREENSHOT,
+    ) : ConfiguredAction {
+        override val kind = ActionKind.SYSTEM
+    }
+}
+
+data class HttpRequestSettings(
     val method: RequestMethod = RequestMethod.GET,
     val url: String = "",
 )
@@ -43,39 +126,21 @@ data class KeyIdentity(
         return deviceId == other.deviceId && source == other.source
     }
 
-    fun summary(): String = if (keyCode == 0) {
-        "Unknown key · scan code $scanCode"
-    } else {
-        "Key code $keyCode · scan code $scanCode"
-    }
-
-    fun technicalDetails(): String = buildString {
-        append("keyCode=").append(keyCode)
-        append(", scanCode=").append(scanCode)
-        append(", source=0x").append(source.toString(16))
-        append("\ndeviceId=").append(deviceId)
-        append(", vendor=").append(vendorId)
-        append(", product=").append(productId)
-        if (descriptor.isNotBlank()) append("\ndescriptor=").append(descriptor)
-    }
 }
 
 data class AppSettings(
     val mappedKey: KeyIdentity? = null,
-    val baseUrl: String = DEFAULT_BASE_URL,
     val hapticStrength: HapticStrength = HapticStrength.MEDIUM,
-    val actions: Map<PressAction, ActionSettings> = defaultActions(),
+    val actions: Map<PressAction, ConfiguredAction> = defaultActions(),
     val results: Map<PressAction, String?> = PressAction.entries.associateWith { null },
     val learning: Boolean = false,
 ) {
     companion object {
-        const val DEFAULT_BASE_URL = "http://192.168.0.108"
-
-        fun defaultActions(): Map<PressAction, ActionSettings> =
+        fun defaultActions(): Map<PressAction, ConfiguredAction> =
             mapOf(
-                PressAction.SINGLE to ActionSettings(url = "/toggle-light"),
-                PressAction.DOUBLE to ActionSettings(url = "/preset-ac"),
-                PressAction.LONG to ActionSettings(url = "/toggle-fan"),
+                PressAction.SINGLE to ConfiguredAction.Http(endpoint = "/toggle-light"),
+                PressAction.DOUBLE to ConfiguredAction.Http(endpoint = "/preset-ac"),
+                PressAction.LONG to ConfiguredAction.Http(endpoint = "/toggle-fan"),
             )
     }
 }

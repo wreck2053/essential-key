@@ -1,6 +1,6 @@
 package com.wreck2053.essentialkey
 
-import com.wreck2053.essentialkey.domain.ActionSettings
+import com.wreck2053.essentialkey.domain.HttpRequestSettings
 import com.wreck2053.essentialkey.domain.RequestMethod
 import java.net.HttpURLConnection
 import java.net.URI
@@ -9,11 +9,11 @@ import java.net.URL
 data class HttpResult(val statusCode: Int, val message: String)
 
 fun interface HttpTransport {
-    fun execute(config: ActionSettings): HttpResult
+    fun execute(config: HttpRequestSettings): HttpResult
 }
 
 class HttpRequestExecutor(private val transport: HttpTransport = UrlConnectionTransport()) {
-    fun execute(config: ActionSettings): HttpResult {
+    fun execute(config: HttpRequestSettings): HttpResult {
         val normalized = config.copy(url = config.url.trim())
         validate(normalized)?.let { return HttpResult(-1, it) }
         return try {
@@ -23,7 +23,7 @@ class HttpRequestExecutor(private val transport: HttpTransport = UrlConnectionTr
         }
     }
 
-    internal fun validate(config: ActionSettings): String? {
+    internal fun validate(config: HttpRequestSettings): String? {
         if (config.url.isBlank()) return "URL is empty"
         return try {
             val uri = URI(config.url)
@@ -39,7 +39,7 @@ class HttpRequestExecutor(private val transport: HttpTransport = UrlConnectionTr
 }
 
 class UrlConnectionTransport : HttpTransport {
-    override fun execute(config: ActionSettings): HttpResult {
+    override fun execute(config: HttpRequestSettings): HttpResult {
         val connection = URL(config.url).openConnection() as HttpURLConnection
         return try {
             connection.requestMethod = config.method.name
